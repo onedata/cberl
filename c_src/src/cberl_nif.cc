@@ -247,10 +247,15 @@ static ERL_NIF_TERM durability_nif(
     }
 }
 
-static ErlNifFunc nif_funcs[] = {{"new", 0, new_nif},
-    {"connect", 7, connect_nif}, {"get", 4, get_nif}, {"store", 4, store_nif},
-    {"remove", 4, remove_nif}, {"arithmetic", 4, arithmetic_nif},
-    {"http", 4, http_nif}, {"durability", 5, durability_nif}};
+static ErlNifFunc nif_funcs[] = {
+    {"new", 0, new_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"connect", 7, connect_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"get", 4, get_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"store", 4, store_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"remove", 4, remove_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"arithmetic", 4, arithmetic_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"http", 4, http_nif, ERL_NIF_DIRTY_JOB_IO_BOUND},
+    {"durability", 5, durability_nif, ERL_NIF_DIRTY_JOB_IO_BOUND}};
 
 ERL_NIF_INIT(cberl_nif, nif_funcs, load, NULL, upgrade, NULL)
 }
