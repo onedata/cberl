@@ -427,7 +427,7 @@ decode(2, Value) -> binary_to_term(Value).
 %%--------------------------------------------------------------------
 -spec encode(encoder(), value()) -> cberl_nif:value().
 encode(none, Value) -> {0, Value};
-encode(json, Value) -> {1, jiffy:encode(Value)};
+encode(json, Value) -> {1, iolist_to_binary(jiffy:encode(Value))};
 encode(raw, Value) -> {2, term_to_binary(Value)}.
 
 %%--------------------------------------------------------------------
