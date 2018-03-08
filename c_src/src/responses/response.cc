@@ -14,6 +14,11 @@ Response::Response(lcb_error_t err)
 {
 }
 
+void Response::setError(lcb_error_t err) { m_err = err; }
+
+lcb_error_t Response::error() const { return m_err; }
+
+#if !defined(NO_ERLANG)
 nifpp::TERM Response::toTerm(const Env &env) const
 {
     if (m_err == LCB_SUCCESS) {
@@ -24,6 +29,7 @@ nifpp::TERM Response::toTerm(const Env &env) const
         std::make_tuple(
             nifpp::str_atom{"error"}, nifpp::str_atom{errorMessage()}));
 }
+#endif
 
 std::string Response::errorMessage() const
 {

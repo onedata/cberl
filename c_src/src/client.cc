@@ -8,92 +8,92 @@
 #include "client.h"
 #include "connection.h"
 
-#include <asio/post.hpp>
-
 namespace cb {
 
 Client::Client()
-    : m_ioService{1}
-    , m_work{asio::make_work_guard(m_ioService)}
-    , m_worker{[=] { m_ioService.run(); }}
+    : m_workerCount{1}
 {
+    m_executor = std::make_shared<folly::IOThreadPoolExecutor>(m_workerCount,
+        std::make_shared<folly::NamedThreadFactory>("CBerlThreadPool"));
 }
 
-Client::~Client()
-{
-    m_ioService.stop();
-    m_worker.join();
-}
+Client::~Client() { m_executor->join(); }
 
 void Client::connect(ConnectRequest request, Callback<ConnectResponse> callback)
 {
-    asio::post(m_ioService,
-        [ request = std::move(request), callback = std::move(callback) ] {
-            try {
-                auto connection = std::make_shared<Connection>(request);
-                callback(ConnectResponse{LCB_SUCCESS, std::move(connection)});
-            }
-            catch (lcb_error_t err) {
-                callback(ConnectResponse{err, nullptr});
-            }
-        });
+    m_executor->add([
+            &, connection = std::make_shared<Connection>(),
+        request = std::move(request), callback = std::move(callback)
+    ] {
+        try {
+            connection->bootstrap(
+                request, m_executor->getEventBase(), std::move(callback));
+            m_connections.push_back(connection);
+        }
+        catch (lcb_error_t err) {
+            callback(ConnectResponse{err, nullptr});
+        }
+    });
 }
 
 void Client::get(ConnectionPtr connection, MultiRequest<GetRequest> request,
     Callback<MultiResponse<GetResponse>> callback)
 {
-    asio::post(m_ioService, [
+    m_executor->add([
         connection = std::move(connection), request = std::move(request),
         callback = std::move(callback)
-    ] { callback(connection->get(request)); });
+    ] { connection->get(request, std::move(callback)); });
 }
 
 void Client::store(ConnectionPtr connection, MultiRequest<StoreRequest> request,
     Callback<MultiResponse<StoreResponse>> callback)
 {
-    asio::post(m_ioService, [
+    m_executor->add([
         connection = std::move(connection), request = std::move(request),
         callback = std::move(callback)
-    ] { callback(connection->store(request)); });
+    ] { connection->store(request, std::move(callback)); });
 }
 
 void Client::remove(ConnectionPtr connection,
     MultiRequest<RemoveRequest> request,
     Callback<MultiResponse<RemoveResponse>> callback)
 {
-    asio::post(m_ioService, [
+    m_executor->add([
         connection = std::move(connection), request = std::move(request),
         callback = std::move(callback)
-    ] { callback(connection->remove(request)); });
+    ] { connection->remove(request, std::move(callback)); });
 }
 
 void Client::arithmetic(ConnectionPtr connection,
     MultiRequest<ArithmeticRequest> request,
     Callback<MultiResponse<ArithmeticResponse>> callback)
 {
-    asio::post(m_ioService, [
+    m_executor->add([
         connection = std::move(connection), request = std::move(request),
         callback = std::move(callback)
-    ] { callback(connection->arithmetic(request)); });
+    ] { connection->arithmetic(request, std::move(callback)); });
 }
 
 void Client::http(ConnectionPtr connection, HttpRequest request,
     Callback<HttpResponse> callback)
 {
-    asio::post(m_ioService, [
+    m_executor->add([
         connection = std::move(connection), request = std::move(request),
         callback = std::move(callback)
-    ] { callback(connection->http(request)); });
+    ] { connection->http(request, std::move(callback)); });
 }
 
 void Client::durability(ConnectionPtr connection,
     MultiRequest<DurabilityRequest> request, DurabilityRequestOptions options,
     Callback<MultiResponse<DurabilityResponse>> callback)
 {
-    asio::post(m_ioService, [
+    m_executor->add([
         connection = std::move(connection), request = std::move(request),
         options = std::move(options), callback = std::move(callback)
-    ] { callback(connection->durability(request, options)); });
+    ] {
+        connection->durability(
+            request, std::move(options), std::move(callback));
+    });
 }
 
 } // namespace cb

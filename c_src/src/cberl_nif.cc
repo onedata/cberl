@@ -5,6 +5,8 @@
  * This software is released under the MIT license cited in 'LICENSE.md'
  */
 
+#if !defined(NO_ERLANG)
+
 #include "nifpp.h"
 
 #include "client.h"
@@ -208,8 +210,8 @@ static ERL_NIF_TERM http_nif(
         cb::HttpRequest request{nifpp::get<cb::HttpRequest::Raw>(env, argv[3])};
 
         client->http(std::move(connection), std::move(request),
-            [ctx](const cb::HttpResponse &responses) {
-                ctx.send(responses.toTerm(ctx.env));
+            [ctx](const cb::HttpResponse &response) {
+                ctx.send(response.toTerm(ctx.env));
             });
 
         return nifpp::make(
@@ -259,3 +261,5 @@ static ErlNifFunc nif_funcs[] = {
 
 ERL_NIF_INIT(cberl_nif, nif_funcs, load, NULL, upgrade, NULL)
 }
+
+#endif
