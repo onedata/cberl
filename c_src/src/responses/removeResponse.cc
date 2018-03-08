@@ -16,6 +16,7 @@ RemoveResponse::RemoveResponse(
 {
 }
 
+#if !defined(NO_ERLANG)
 nifpp::TERM RemoveResponse::toTerm(const Env &env) const
 {
     if (m_err == LCB_SUCCESS) {
@@ -24,5 +25,6 @@ nifpp::TERM RemoveResponse::toTerm(const Env &env) const
 
     return nifpp::make(env, std::make_tuple(m_key, Response::toTerm(env)));
 }
+#endif
 
 } // namespace cb

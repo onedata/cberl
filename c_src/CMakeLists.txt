@@ -10,6 +10,7 @@ project(cberl C CXX)
 set(CMAKE_SKIP_INSTALL_ALL_DEPENDENCY True)
 set(CMAKE_POSITION_INDEPENDENT_CODE True)
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+set(CMAKE_VERBOSE_MAKEFILE ON)
 
 # Setup Threads
 find_package(Threads REQUIRED)
@@ -33,8 +34,7 @@ add_compile_options(-Wall -Wshadow -Wpedantic)
 add_compile_options(-fvisibility=hidden -fvisibility-inlines-hidden)
 add_definitions(-DASIO_STANDALONE)
 
-include_directories(
-    src)
+include_directories(src)
 
 add_subdirectory(src)
 
@@ -45,3 +45,20 @@ target_include_directories(cberl PRIVATE ${CBERL_INCLUDE_DIRS})
 set_target_properties(cberl PROPERTIES SUFFIX .so)
 
 install(TARGETS cberl DESTINATION .)
+
+#
+# Below targets are used to build C++ only cberl benchmark
+# executable without NIF compiled in
+#
+add_library(cberl_static STATIC EXCLUDE_FROM_ALL ${PROJECT_SOURCES})
+target_link_libraries(cberl_static PRIVATE ${CBERL_LIBRARIES})
+target_compile_definitions(cberl_static PUBLIC NO_ERLANG=1)
+target_include_directories(cberl_static SYSTEM PRIVATE ${CBERL_SYSTEM_INCLUDE_DIRS})
+target_include_directories(cberl_static PRIVATE ${CBERL_INCLUDE_DIRS})
+
+add_executable(cberl_benchmark EXCLUDE_FROM_ALL benchmark/benchmark.cc)
+target_link_libraries(cberl_benchmark cberl_static ${CBERL_LIBRARIES})
+target_compile_definitions(cberl_benchmark PUBLIC NO_ERLANG=1)
+target_include_directories(cberl_benchmark SYSTEM PRIVATE ${CBERL_SYSTEM_INCLUDE_DIRS})
+target_include_directories(cberl_benchmark PRIVATE ${CBERL_INCLUDE_DIRS})
+

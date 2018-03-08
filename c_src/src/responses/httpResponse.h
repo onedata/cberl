@@ -14,7 +14,7 @@ namespace cb {
 
 class HttpResponse : public Response {
 public:
-    HttpResponse(lcb_error_t err);
+    HttpResponse(lcb_error_t err = LCB_SUCCESS);
 
     void setError(lcb_error_t err);
 
@@ -22,7 +22,9 @@ public:
 
     void setBody(const void *body, std::size_t bodySize);
 
+#if !defined(NO_ERLANG)
     nifpp::TERM toTerm(const Env &env) const;
+#endif
 
 private:
     lcb_http_status_t m_status;

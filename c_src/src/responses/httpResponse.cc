@@ -25,6 +25,7 @@ void HttpResponse::setBody(const void *body, std::size_t bodySize)
     }
 }
 
+#if !defined(NO_ERLANG)
 nifpp::TERM HttpResponse::toTerm(const Env &env) const
 {
     if (m_err == LCB_SUCCESS) {
@@ -34,5 +35,6 @@ nifpp::TERM HttpResponse::toTerm(const Env &env) const
 
     return Response::toTerm(env);
 }
+#endif
 
 } // namespace cb

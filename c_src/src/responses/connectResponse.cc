@@ -17,6 +17,12 @@ ConnectResponse::ConnectResponse(
 {
 }
 
+std::shared_ptr<Connection> ConnectResponse::connection() const
+{
+    return m_connection;
+}
+
+#if !defined(NO_ERLANG)
 nifpp::TERM ConnectResponse::toTerm(const Env &env) const
 {
     if (m_err == LCB_SUCCESS) {
@@ -27,5 +33,6 @@ nifpp::TERM ConnectResponse::toTerm(const Env &env) const
 
     return Response::toTerm(env);
 }
+#endif
 
 } // namespace cb

@@ -15,6 +15,7 @@
 #include <memory>
 #include <string>
 
+#if !defined(NO_ERLANG)
 class Env {
 public:
     Env()
@@ -29,6 +30,7 @@ public:
 private:
     std::shared_ptr<ErlNifEnv> m_env;
 };
+#endif
 
 namespace cb {
 
@@ -36,7 +38,9 @@ class Response {
 public:
     Response(lcb_error_t err = LCB_SUCCESS);
 
+#if !defined(NO_ERLANG)
     nifpp::TERM toTerm(const Env &env) const;
+#endif
 
 protected:
     lcb_error_t m_err;

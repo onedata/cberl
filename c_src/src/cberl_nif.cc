@@ -5,6 +5,8 @@
  * This software is released under the MIT license cited in 'LICENSE.md'
  */
 
+#if !defined(NO_ERLANG)
+
 #include "nifpp.h"
 
 #include "client.h"
@@ -89,10 +91,9 @@ static ERL_NIF_TERM connect_nif(
             nifpp::get<std::vector<std::tuple<nifpp::str_atom, int>>>(
                 env, argv[6])};
 
-        client->connect(
-            std::move(request), [ctx](const cb::ConnectResponse &response) {
-                ctx.send(response.toTerm(ctx.env));
-            });
+        auto response = client->connect(std::move(request));
+
+        ctx.send(response.get().toTerm(ctx.env));
 
         return nifpp::make(
             env, std::make_tuple(nifpp::str_atom{"ok"}, ctx.reqId));
@@ -112,10 +113,9 @@ static ERL_NIF_TERM get_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
         cb::MultiRequest<cb::GetRequest> request{
             nifpp::get<std::vector<cb::GetRequest::Raw>>(env, argv[3])};
 
-        client->get(std::move(connection), std::move(request),
-            [ctx](const cb::MultiResponse<cb::GetResponse> &responses) {
-                ctx.send(responses.toTerm(ctx.env));
-            });
+        auto responses = client->get(std::move(connection), std::move(request));
+
+        ctx.send(responses.get().toTerm(ctx.env));
 
         return nifpp::make(
             env, std::make_tuple(nifpp::str_atom{"ok"}, ctx.reqId));
@@ -136,10 +136,10 @@ static ERL_NIF_TERM store_nif(
         cb::MultiRequest<cb::StoreRequest> request{
             nifpp::get<std::vector<cb::StoreRequest::Raw>>(env, argv[3])};
 
-        client->store(std::move(connection), std::move(request),
-            [ctx](const cb::MultiResponse<cb::StoreResponse> &responses) {
-                ctx.send(responses.toTerm(ctx.env));
-            });
+        auto responses =
+            client->store(std::move(connection), std::move(request));
+
+        ctx.send(responses.get().toTerm(ctx.env));
 
         return nifpp::make(
             env, std::make_tuple(nifpp::str_atom{"ok"}, ctx.reqId));
@@ -160,10 +160,10 @@ static ERL_NIF_TERM remove_nif(
         cb::MultiRequest<cb::RemoveRequest> request{
             nifpp::get<std::vector<cb::RemoveRequest::Raw>>(env, argv[3])};
 
-        client->remove(std::move(connection), std::move(request),
-            [ctx](const cb::MultiResponse<cb::RemoveResponse> &responses) {
-                ctx.send(responses.toTerm(ctx.env));
-            });
+        auto responses =
+            client->remove(std::move(connection), std::move(request));
+
+        ctx.send(responses.get().toTerm(ctx.env));
 
         return nifpp::make(
             env, std::make_tuple(nifpp::str_atom{"ok"}, ctx.reqId));
@@ -184,10 +184,10 @@ static ERL_NIF_TERM arithmetic_nif(
         cb::MultiRequest<cb::ArithmeticRequest> request{
             nifpp::get<std::vector<cb::ArithmeticRequest::Raw>>(env, argv[3])};
 
-        client->arithmetic(std::move(connection), std::move(request),
-            [ctx](const cb::MultiResponse<cb::ArithmeticResponse> &responses) {
-                ctx.send(responses.toTerm(ctx.env));
-            });
+        auto responses =
+            client->arithmetic(std::move(connection), std::move(request));
+
+        ctx.send(responses.get().toTerm(ctx.env));
 
         return nifpp::make(
             env, std::make_tuple(nifpp::str_atom{"ok"}, ctx.reqId));
@@ -207,10 +207,9 @@ static ERL_NIF_TERM http_nif(
         auto connection = nifpp::get<cb::ConnectionPtr>(env, argv[2]);
         cb::HttpRequest request{nifpp::get<cb::HttpRequest::Raw>(env, argv[3])};
 
-        client->http(std::move(connection), std::move(request),
-            [ctx](const cb::HttpResponse &responses) {
-                ctx.send(responses.toTerm(ctx.env));
-            });
+        auto response = client->http(std::move(connection), std::move(request));
+
+        ctx.send(response.get().toTerm(ctx.env));
 
         return nifpp::make(
             env, std::make_tuple(nifpp::str_atom{"ok"}, ctx.reqId));
@@ -233,12 +232,10 @@ static ERL_NIF_TERM durability_nif(
         cb::DurabilityRequestOptions options{
             nifpp::get<cb::DurabilityRequestOptions::Raw>(env, argv[4])};
 
-        client->durability(std::move(connection), std::move(request),
-            std::move(options),
-            [ctx](const cb::MultiResponse<cb::DurabilityResponse> &responses) {
-                ctx.send(responses.toTerm(ctx.env));
-            });
+        auto responses = client->durability(
+            std::move(connection), std::move(request), std::move(options));
 
+        ctx.send(responses.get().toTerm(ctx.env));
         return nifpp::make(
             env, std::make_tuple(nifpp::str_atom{"ok"}, ctx.reqId));
     }
@@ -259,3 +256,5 @@ static ErlNifFunc nif_funcs[] = {
 
 ERL_NIF_INIT(cberl_nif, nif_funcs, load, NULL, upgrade, NULL)
 }
+
+#endif

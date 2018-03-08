@@ -14,9 +14,11 @@ namespace cb {
 
 class Client;
 class Connection;
+class ConnectResponse;
 
 using ClientPtr = std::shared_ptr<Client>;
 using ConnectionPtr = std::shared_ptr<Connection>;
+using ConnectResponsePtr = std::shared_ptr<ConnectResponse>;
 
 } // namespace cb
 

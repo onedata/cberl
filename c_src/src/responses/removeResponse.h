@@ -16,7 +16,9 @@ class RemoveResponse : public Response {
 public:
     RemoveResponse(lcb_error_t err, const void *key, std::size_t keySize);
 
+#if !defined(NO_ERLANG)
     nifpp::TERM toTerm(const Env &env) const;
+#endif
 
 private:
     std::string m_key;

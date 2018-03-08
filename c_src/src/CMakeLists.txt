@@ -10,12 +10,6 @@ set(CBERL_SYSTEM_INCLUDE_DIRS
 
 file(GLOB_RECURSE SOURCES *.cc *.h)
 
-add_library(cberl_obj OBJECT
-    ${SOURCES})
-
-target_include_directories(cberl_obj SYSTEM PRIVATE
-    ${CBERL_SYSTEM_INCLUDE_DIRS})
-
 set(CBERL_SYSTEM_INCLUDE_DIRS
     ${CBERL_SYSTEM_INCLUDE_DIRS}
     PARENT_SCOPE)
@@ -30,6 +24,6 @@ set(CBERL_LIBRARIES
     PARENT_SCOPE)
 
 set(PROJECT_SOURCES
-    $<TARGET_OBJECTS:cberl_obj>
+    ${SOURCES}
     ${PROJECT_SOURCES}
     PARENT_SCOPE)

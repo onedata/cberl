@@ -16,8 +16,9 @@ namespace cb {
 
 template <class ResponseT> class MultiResponse : public Response {
 public:
-    MultiResponse(lcb_error_t err)
+    MultiResponse(lcb_error_t err = LCB_SUCCESS, uint64_t batchSize = 1)
         : Response{err}
+        , m_batchSize{batchSize}
     {
     }
 
@@ -26,6 +27,9 @@ public:
         m_responses.emplace_back(std::move(response));
     }
 
+    bool complete() { return m_responses.size() == m_batchSize; }
+
+#if !defined(NO_ERLANG)
     nifpp::TERM toTerm(const Env &env) const
     {
         if (m_err == LCB_SUCCESS) {
@@ -39,9 +43,11 @@ public:
 
         return Response::toTerm(env);
     }
+#endif
 
 private:
     std::vector<ResponseT> m_responses;
+    uint64_t m_batchSize;
 };
 
 } // namespace cb

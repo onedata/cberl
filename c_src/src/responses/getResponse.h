@@ -19,7 +19,9 @@ public:
     GetResponse(const void *key, std::size_t keySize, lcb_cas_t cas,
         lcb_uint32_t flags, const void *value, std::size_t valueSize);
 
+#if !defined(NO_ERLANG)
     nifpp::TERM toTerm(const Env &env) const;
+#endif
 
 private:
     std::string m_key;

@@ -1,6 +1,6 @@
 # cberl
 
-An Erlang client for a CouchBase database.
+An Erlang client for a CouchBase database based on Asio IO plugin.
 
 ## Build
 
@@ -57,7 +57,7 @@ cberl:remove(C, <<"k1">>, 0, 1000).
 % Bulk store data
 cberl:bulk_store(C, [
     {set, <<"k1">>, <<"v1">>, none, 0, 0},
-    {set, <<"k2">>, {[{<<"k2">>, <<"v2">>}]}, json, 0, 0}, 
+    {set, <<"k2">>, {[{<<"k2">>, <<"v2">>}]}, json, 0, 0},
     {set, <<"k3">>, v3, raw, 0, 0}
 ], 1000).
 % {ok, [{<<"k1">>, {ok, 1492166534118965248}},
@@ -66,7 +66,7 @@ cberl:bulk_store(C, [
 
 % Bulk get data
 cberl:bulk_get(C, [
-    {<<"k1">>, 0, false}, 
+    {<<"k1">>, 0, false},
     {<<"k2">>, 0, false},
     {<<"k3">>, 0, false}
 ], 1000).
@@ -132,3 +132,20 @@ The following `libcouchbase` functions are currently implemented:
 * `lcb_arithmetic`
 * `lcb_make_http_request`
 * `lcb_durability_poll`
+
+
+## Benchmarking
+
+The project contains a special make target `benchmark` which builds a standalone
+C++ executable with a benchmark client, enabling to estimate the performance
+of a set of clients against a Couchbase server.
+
+Building benchmark:
+
+```
+$ cd c_src
+$ mkdir _build
+$ cd _build
+$ cmake ..
+$ make cberl_benchmark
+```

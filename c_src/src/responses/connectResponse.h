@@ -19,7 +19,11 @@ class ConnectResponse : public Response {
 public:
     ConnectResponse(lcb_error_t err, ConnectionPtr connection);
 
+    std::shared_ptr<Connection> connection() const;
+
+#if !defined(NO_ERLANG)
     nifpp::TERM toTerm(const Env &env) const;
+#endif
 
 private:
     std::shared_ptr<Connection> m_connection;
