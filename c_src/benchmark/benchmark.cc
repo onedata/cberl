@@ -18,6 +18,139 @@
 #include <string>
 #include <vector>
 
+const std::string CONTENT(1024, 'x');
+
+auto getBatch(std::shared_ptr<cb::Client> client,
+    std::shared_ptr<cb::Connection> connection, std::string prefix,
+    int batchSize)
+{
+    auto start = std::chrono::system_clock::now();
+
+    std::vector<std::future<cb::MultiResponse<cb::GetResponse>>> getFutures;
+
+    std::vector<cb::GetRequest::Raw> reqs;
+
+    for (int i = 0; i < batchSize; i++) {
+        std::tuple<std::string, lcb_time_t, bool> value{
+            prefix + std::to_string(i), 0, false};
+
+        reqs.push_back(std::move(value));
+    }
+
+    cb::MultiRequest<cb::GetRequest> getRequest(std::move(reqs));
+    getFutures.push_back(client->get(connection, std::move(getRequest)));
+
+    for (auto &f : getFutures) {
+        f.get();
+    }
+
+    auto end = std::chrono::system_clock::now();
+    auto elapsed =
+        std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+    return elapsed;
+}
+
+auto storeBatch(std::shared_ptr<cb::Client> client,
+    std::shared_ptr<cb::Connection> connection, std::string prefix,
+    int batchSize)
+{
+    auto start = std::chrono::system_clock::now();
+
+    std::vector<std::future<cb::MultiResponse<cb::StoreResponse>>> storeFutures;
+
+    std::vector<cb::StoreRequest::Raw> reqs;
+
+    for (int i = 0; i < batchSize; i++) {
+        std::tuple<int, std::string, std::string, lcb_uint32_t, lcb_cas_t,
+            lcb_time_t>
+            value{0, prefix + std::to_string(i), CONTENT, 0, 0, 0};
+
+        reqs.push_back(std::move(value));
+    }
+
+    cb::MultiRequest<cb::StoreRequest> storeRequest(reqs);
+
+    storeFutures.push_back(client->store(connection, std::move(storeRequest)));
+
+    for (auto &f : storeFutures) {
+        f.get();
+    }
+
+    auto end = std::chrono::system_clock::now();
+    auto elapsed =
+        std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+    return elapsed;
+}
+
+auto removeBatch(std::shared_ptr<cb::Client> client,
+    std::shared_ptr<cb::Connection> connection, std::string prefix,
+    int batchSize)
+{
+    auto start = std::chrono::system_clock::now();
+
+    std::vector<std::future<cb::MultiResponse<cb::RemoveResponse>>>
+        removeFutures;
+
+    std::vector<cb::RemoveRequest::Raw> reqs;
+
+    for (int i = 0; i < batchSize; i++) {
+        std::tuple<std::string, lcb_cas_t> value{prefix + std::to_string(i), 0};
+
+        reqs.push_back(std::move(value));
+    }
+
+    cb::MultiRequest<cb::RemoveRequest> removeRequest(reqs);
+
+    removeFutures.push_back(
+        client->remove(connection, std::move(removeRequest)));
+
+    for (auto &f : removeFutures) {
+        f.get();
+    }
+
+    auto end = std::chrono::system_clock::now();
+    auto elapsed =
+        std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+    return elapsed;
+}
+
+auto durabilityBatch(std::shared_ptr<cb::Client> client,
+    std::shared_ptr<cb::Connection> connection, std::string prefix,
+    int batchSize)
+{
+    auto start = std::chrono::system_clock::now();
+
+    std::vector<std::future<cb::MultiResponse<cb::DurabilityResponse>>>
+        durabilityFutures;
+
+    std::vector<cb::DurabilityRequest::Raw> reqs;
+
+    for (int i = 0; i < batchSize; i++) {
+        std::tuple<std::string, lcb_cas_t> value{prefix + std::to_string(i), 0};
+
+        reqs.push_back(std::move(value));
+    }
+
+    cb::MultiRequest<cb::DurabilityRequest> durabilityRequest(reqs);
+    std::tuple<std::int32_t, std::int32_t> dopts = std::make_tuple(1, 1);
+
+    durabilityFutures.push_back(
+        client->durability(connection, std::move(durabilityRequest), dopts));
+
+    for (auto &f : durabilityFutures) {
+        f.get();
+    }
+
+    auto end = std::chrono::system_clock::now();
+    auto elapsed =
+        std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+
+    return elapsed;
+}
+
 /**
  * cberl Couchbase benchmark.
  *
@@ -28,12 +161,12 @@
  */
 int main(int argc, char *argv[])
 {
-    auto host = "localhost:8091";
+    auto host = "192.168.1.5:8091";
     auto user = "";
     auto password = "";
     auto bucket = "default";
     auto workerCount = 10;
-    auto batchSize = 100;
+    auto batchSize = 1200;
 
     if (argc > 1) {
         host = argv[1];
@@ -54,12 +187,13 @@ int main(int argc, char *argv[])
         batchSize = std::stoi(argv[6]);
     }
 
+    auto client = std::make_shared<cb::Client>();
+
+    cb::ConnectRequest request{host, user, password, bucket, {}};
+
     auto benchmarkWorker = [&](std::string prefix) {
-        cb::Client client;
 
-        cb::ConnectRequest request{host, user, password, bucket, {}};
-
-        auto connectFuture = client.connect(std::move(request));
+        auto connectFuture = client->connect(std::move(request));
 
         auto connectResponse = connectFuture.get();
 
@@ -68,100 +202,20 @@ int main(int argc, char *argv[])
 
         while (1) {
 
-            auto start = std::chrono::system_clock::now();
+            auto getEmptyTime = getBatch(client, connection, prefix, batchSize);
+            auto storeTime = storeBatch(client, connection, prefix, batchSize);
+            auto getTime = getBatch(client, connection, prefix, batchSize);
+            auto durabilityTime =
+                durabilityBatch(client, connection, prefix, batchSize);
+            auto removeTime =
+                removeBatch(client, connection, prefix, batchSize);
 
-            std::vector<std::future<cb::MultiResponse<cb::StoreResponse>>>
-                storeFutures;
-            storeFutures.reserve(batchSize);
-
-            for (int i = 0; i < batchSize; i++) {
-                std::tuple<int, std::string, std::string, lcb_uint32_t,
-                    lcb_cas_t, lcb_time_t>
-                    value{0, prefix + std::to_string(i), "CONTENT", 0, 0, 0};
-
-                std::vector<cb::StoreRequest::Raw> reqs;
-                reqs.push_back(std::move(value));
-
-                cb::MultiRequest<cb::StoreRequest> storeRequest(reqs);
-
-                assert(connection);
-
-                storeFutures.push_back(
-                    client.store(connection, std::move(storeRequest)));
-            }
-
-            for (auto &f : storeFutures) {
-                f.get();
-            }
-
-            auto end = std::chrono::system_clock::now();
-            auto elapsed =
-                std::chrono::duration_cast<std::chrono::milliseconds>(
-                    end - start);
-
-            start = std::chrono::system_clock::now();
-
-            std::vector<std::future<cb::MultiResponse<cb::GetResponse>>>
-                getFutures;
-            getFutures.reserve(batchSize);
-
-            for (int i = 0; i < batchSize; i++) {
-                std::tuple<std::string, lcb_time_t, bool> value{
-                    prefix + std::to_string(i), 0, false};
-
-                std::vector<cb::GetRequest::Raw> reqs;
-                reqs.push_back(std::move(value));
-
-                cb::MultiRequest<cb::GetRequest> getRequest(reqs);
-
-                assert(connection);
-
-                getFutures.push_back(
-                    client.get(connection, std::move(getRequest)));
-            }
-
-            for (auto &f : getFutures) {
-                f.get();
-            }
-
-            end = std::chrono::system_clock::now();
-            elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                end - start);
-
-            start = std::chrono::system_clock::now();
-
-            std::vector<std::future<cb::MultiResponse<cb::RemoveResponse>>>
-                removeFutures;
-            removeFutures.reserve(batchSize);
-
-            for (int i = 0; i < batchSize; i++) {
-                std::tuple<std::string, lcb_cas_t> value{
-                    prefix + std::to_string(i), 0};
-
-                std::vector<cb::RemoveRequest::Raw> reqs;
-                reqs.push_back(std::move(value));
-
-                cb::MultiRequest<cb::RemoveRequest> removeRequest(reqs);
-
-                assert(connection);
-
-                removeFutures.push_back(
-                    client.remove(connection, std::move(removeRequest)));
-            }
-
-            for (auto &f : removeFutures) {
-                f.get();
-            }
-
-            end = std::chrono::system_clock::now();
-            elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
-                end - start);
-
-            /*
-             *std::cout << prefix << ": Deleted " << batchSize << " documents in
-             *"
-             *          << elapsed.count() << " [ms]\n";
-             */
+            std::cout << prefix << " SIZE=" << batchSize << ": ("
+                      << "GET_EMPTY=" << getEmptyTime.count()
+                      << " [ms], STORE=" << storeTime.count()
+                      << " [ms], GET=" << getTime.count()
+                      << " [ms], DURABILITY=" << durabilityTime.count()
+                      << " [ms], REMOVE=" << removeTime.count() << " [ms])\n";
         }
     };
 
