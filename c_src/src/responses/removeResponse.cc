@@ -19,7 +19,9 @@ RemoveResponse::RemoveResponse(
 #if !defined(NO_ERLANG)
 nifpp::TERM RemoveResponse::toTerm(const Env &env) const
 {
-    if (m_err == LCB_SUCCESS) {
+
+    // Treat removal attempt of non-existent key as success
+    if (m_err == LCB_SUCCESS || m_err == LCB_KEY_ENOENT) {
         return nifpp::make(env, std::make_tuple(m_key, nifpp::str_atom{"ok"}));
     }
 

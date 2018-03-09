@@ -9,7 +9,6 @@
 #include "connection.h"
 
 #include <asio/post.hpp>
-#include <iostream>
 
 namespace cb {
 

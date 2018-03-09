@@ -12,15 +12,13 @@
 #include <mutex>
 #include <unordered_map>
 
-#include <iostream>
-
 namespace cb {
 
 /**
- * @c PromiseProxy provides generatic proxy for holding promises for futures
- * which need to be maintained (for instance in case of interface with
- * asynchronous callback-based API's) until the promise is fullfilled.
- * The promises can be identified based on ID
+ * @c PromiseProxy provides generic proxy for holding promises for futures,
+ * which need to be maintained for some time (for instance in case of interface
+ * with asynchronous callback-based API's) until the promise is fullfilled.
+ * The promises can be identified based on ID.
  */
 template <class PromiseType>
 class PromiseProxy {

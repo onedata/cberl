@@ -7,10 +7,6 @@
 #include "connection.h"
 #include "asio_io_opts.h"
 
-extern "C" {
-lcb_error_t lcb_create_boost_asio_io_opts(int, lcb_io_opt_st **io, void *arg);
-}
-
 namespace {
 
 void bootstrapCallback(lcb_t instance, lcb_error_t err)
