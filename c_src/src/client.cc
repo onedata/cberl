@@ -12,130 +12,55 @@
 
 namespace cb {
 
-Client::Client()
-    : m_workerCount{1}
-    , m_ioService{m_workerCount}
-    , m_work{asio::make_work_guard(m_ioService)}
+Client::Client() {}
+
+Client::~Client() {}
+
+void Client::connect(ConnectRequest request, Callback<ConnectResponse> callback)
 {
-    for (size_t i = 0; i < m_workerCount; ++i) {
-        m_workers.emplace_back([&]() { m_ioService.run(); });
-    }
+    auto connection = std::make_shared<Connection>();
+    m_connections.emplace_back(connection);
+
+    connection->bootstrap(request, std::move(callback));
 }
 
-void Client::join()
+void Client::get(ConnectionPtr connection, MultiRequest<GetRequest> request,
+    Callback<MultiResponse<GetResponse>> callback)
 {
-    for (auto &thread : m_workers)
-        if (thread.joinable())
-            thread.join();
+    connection->get(request, std::move(callback));
 }
 
-Client::~Client()
+void Client::store(ConnectionPtr connection, MultiRequest<StoreRequest> request,
+    Callback<MultiResponse<StoreResponse>> callback)
 {
-    m_ioService.stop();
-    join();
+    connection->store(request, std::move(callback));
 }
 
-std::future<ConnectResponse> Client::connect(ConnectRequest request)
+void Client::remove(ConnectionPtr connection,
+    MultiRequest<RemoveRequest> request,
+    Callback<MultiResponse<RemoveResponse>> callback)
 {
-    std::promise<ConnectResponse> connectPromise;
-    auto connectFuture = connectPromise.get_future();
-
-    asio::post(m_ioService, [
-        this, request = std::move(request), ioServicePtr = &m_ioService,
-        promise = std::move(connectPromise)
-    ]() mutable {
-        m_connections.emplace_back(std::make_shared<Connection>(
-            request, ioServicePtr, std::move(promise)));
-    });
-
-    return connectFuture;
+    connection->remove(request, std::move(callback));
 }
 
-std::future<MultiResponse<GetResponse>> Client::get(
-    ConnectionPtr connection, MultiRequest<GetRequest> request)
+void Client::arithmetic(ConnectionPtr connection,
+    MultiRequest<ArithmeticRequest> request,
+    Callback<MultiResponse<ArithmeticResponse>> callback)
 {
-    std::promise<MultiResponse<GetResponse>> getPromise;
-    auto getFuture = getPromise.get_future();
-
-    asio::post(m_ioService, [
-        connection = std::move(connection), request = std::move(request),
-        promise = std::move(getPromise)
-    ]() mutable { connection->get(request, std::move(promise)); });
-
-    return getFuture;
+    connection->arithmetic(request, std::move(callback));
 }
 
-std::future<MultiResponse<StoreResponse>> Client::store(
-    ConnectionPtr connection, MultiRequest<StoreRequest> request)
+void Client::http(ConnectionPtr connection, HttpRequest request,
+    Callback<HttpResponse> callback)
 {
-    std::promise<MultiResponse<StoreResponse>> storePromise;
-    auto storeFuture = storePromise.get_future();
-
-    asio::post(m_ioService, [
-        connection = std::move(connection), request = std::move(request),
-        promise = std::move(storePromise)
-    ]() mutable { connection->store(request, std::move(promise)); });
-
-    return storeFuture;
+    connection->http(request, std::move(callback));
 }
 
-std::future<MultiResponse<RemoveResponse>> Client::remove(
-    ConnectionPtr connection, MultiRequest<RemoveRequest> request)
+void Client::durability(ConnectionPtr connection,
+    MultiRequest<DurabilityRequest> request, DurabilityRequestOptions options,
+    Callback<MultiResponse<DurabilityResponse>> callback)
 {
-    std::promise<MultiResponse<RemoveResponse>> removePromise;
-    auto removeFuture = removePromise.get_future();
-
-    asio::post(m_ioService, [
-        connection = std::move(connection), request = std::move(request),
-        promise = std::move(removePromise)
-    ]() mutable { connection->remove(request, std::move(promise)); });
-
-    return removeFuture;
-}
-
-std::future<MultiResponse<ArithmeticResponse>> Client::arithmetic(
-    ConnectionPtr connection, MultiRequest<ArithmeticRequest> request)
-{
-    std::promise<MultiResponse<ArithmeticResponse>> arithmeticPromise;
-    auto arithmeticFuture = arithmeticPromise.get_future();
-
-    asio::post(m_ioService, [
-        connection = std::move(connection), request = std::move(request),
-        promise = std::move(arithmeticPromise)
-    ]() mutable { connection->arithmetic(request, std::move(promise)); });
-
-    return arithmeticFuture;
-}
-
-std::future<HttpResponse> Client::http(
-    ConnectionPtr connection, HttpRequest request)
-{
-    std::promise<HttpResponse> httpPromise;
-    auto httpFuture = httpPromise.get_future();
-
-    asio::post(m_ioService, [
-        connection = std::move(connection), request = std::move(request),
-        promise = std::move(httpPromise)
-    ]() mutable { connection->http(request, std::move(promise)); });
-
-    return httpFuture;
-}
-
-std::future<MultiResponse<DurabilityResponse>> Client::durability(
-    ConnectionPtr connection, MultiRequest<DurabilityRequest> request,
-    DurabilityRequestOptions options)
-{
-    std::promise<MultiResponse<DurabilityResponse>> durabilityPromise;
-    auto durabilityFuture = durabilityPromise.get_future();
-
-    asio::post(m_ioService, [
-        connection = std::move(connection), request = std::move(request),
-        options = std::move(options), promise = std::move(durabilityPromise)
-    ]() mutable {
-        connection->durability(request, options, std::move(promise));
-    });
-
-    return durabilityFuture;
+    connection->durability(request, std::move(options), std::move(callback));
 }
 
 } // namespace cb

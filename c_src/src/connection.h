@@ -8,9 +8,10 @@
 #ifndef COUCHBASE_CONNECTION_H
 #define COUCHBASE_CONNECTION_H
 
-#include "promiseProxy.h"
 #include "requests/requests.h"
+#include "responsePlaceholder.h"
 #include "responses/responses.h"
+#include "types.h"
 
 #include <asio.hpp>
 #include <libcouchbase/couchbase.h>
@@ -22,51 +23,62 @@
 
 namespace cb {
 
-using GetPromises = PromiseProxy<MultiResponse<GetResponse>>;
-using StorePromises = PromiseProxy<MultiResponse<StoreResponse>>;
-using RemovePromises = PromiseProxy<MultiResponse<RemoveResponse>>;
-using ArithmeticPromises = PromiseProxy<MultiResponse<ArithmeticResponse>>;
-using HttpPromises = PromiseProxy<HttpResponse>;
-using DurabilityPromises = PromiseProxy<MultiResponse<DurabilityResponse>>;
+using ConnectionResponses = ResponsePlaceholder<ConnectResponse>;
+using GetResponses = ResponsePlaceholder<MultiResponse<GetResponse>>;
+using StoreResponses = ResponsePlaceholder<MultiResponse<StoreResponse>>;
+using RemoveResponses = ResponsePlaceholder<MultiResponse<RemoveResponse>>;
+using ArithmeticResponses =
+    ResponsePlaceholder<MultiResponse<ArithmeticResponse>>;
+using HttpResponses = ResponsePlaceholder<HttpResponse>;
+using DurabilityResponses =
+    ResponsePlaceholder<MultiResponse<DurabilityResponse>>;
 
-class Connection : public GetPromises,
-                   public StorePromises,
-                   public RemovePromises,
-                   public ArithmeticPromises,
-                   public HttpPromises,
-                   public DurabilityPromises,
+class Connection : public ConnectionResponses,
+                   public GetResponses,
+                   public StoreResponses,
+                   public RemoveResponses,
+                   public ArithmeticResponses,
+                   public HttpResponses,
+                   public DurabilityResponses,
                    public std::enable_shared_from_this<Connection> {
 public:
-    Connection(const ConnectRequest &bucket, asio::io_service *ioService,
-        std::promise<ConnectResponse> &&connectPromise);
+    Connection(const short unsigned int workerCount = 1);
 
     ~Connection();
 
-    std::promise<ConnectResponse> &connectPromise();
-
     std::shared_ptr<Connection> getShared() { return shared_from_this(); }
 
+    void bootstrap(
+        const ConnectRequest &request, Callback<ConnectResponse> callback);
+
     void get(const MultiRequest<GetRequest> &request,
-        std::promise<MultiResponse<GetResponse>>&& promise);
+        Callback<MultiResponse<GetResponse>> callback);
 
     void store(const MultiRequest<StoreRequest> &request,
-        std::promise<MultiResponse<StoreResponse>> &&promise);
+        Callback<MultiResponse<StoreResponse>> callback);
 
     void remove(const MultiRequest<RemoveRequest> &request,
-        std::promise<MultiResponse<RemoveResponse>> &&promise);
+        Callback<MultiResponse<RemoveResponse>> callback);
 
     void arithmetic(const MultiRequest<ArithmeticRequest> &request,
-        std::promise<MultiResponse<ArithmeticResponse>> &&promise);
+        Callback<MultiResponse<ArithmeticResponse>> callback);
 
-    void http(const HttpRequest &request, std::promise<HttpResponse> &&promise);
+    void http(const HttpRequest &request, Callback<HttpResponse> callback);
 
     void durability(const MultiRequest<DurabilityRequest> &request,
         const DurabilityRequestOptions &options,
-        std::promise<MultiResponse<DurabilityResponse>> &&promise);
+        Callback<MultiResponse<DurabilityResponse>> callback);
 
 private:
+    const unsigned short m_workerCount;
+
+    asio::io_service m_ioService;
+    asio::executor_work_guard<asio::io_service::executor_type> m_work;
+    std::vector<std::thread> m_workers;
+
     lcb_t m_instance;
-    std::promise<ConnectResponse> m_connectPromise;
+
+    void join();
 };
 
 } // namespace cb

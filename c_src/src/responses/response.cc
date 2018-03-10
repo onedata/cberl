@@ -14,6 +14,8 @@ Response::Response(lcb_error_t err)
 {
 }
 
+void Response::setError(lcb_error_t err) { m_err = err; }
+
 #if !defined(NO_ERLANG)
 nifpp::TERM Response::toTerm(const Env &env) const
 {

@@ -22,7 +22,7 @@ class ConnectRequest {
 public:
     ConnectRequest(std::string host, std::string username, std::string password,
         std::string bucket,
-        std::vector<std::tuple<nifpp::str_atom, int>> options);
+        const std::vector<std::tuple<nifpp::str_atom, int>> &options);
 
     const std::string &host() const;
 

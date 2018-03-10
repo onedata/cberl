@@ -16,8 +16,6 @@ class HttpResponse : public Response {
 public:
     HttpResponse(lcb_error_t err = LCB_SUCCESS);
 
-    void setError(lcb_error_t err);
-
     void setStatus(lcb_http_status_t status);
 
     void setBody(const void *body, std::size_t bodySize);

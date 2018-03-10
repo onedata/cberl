@@ -26,44 +26,37 @@
 namespace cb {
 
 class Client {
-    template <typename T> using Callback = std::function<void(const T &)>;
 
 public:
     Client();
 
     ~Client();
 
-    std::future<ConnectResponse> connect(ConnectRequest);
+    void connect(ConnectRequest, Callback<ConnectResponse> callback);
 
-    std::future<MultiResponse<GetResponse>> get(
-        ConnectionPtr connection, MultiRequest<GetRequest> request);
+    void get(ConnectionPtr connection, MultiRequest<GetRequest> request,
+        Callback<MultiResponse<GetResponse>> callback);
 
-    std::future<MultiResponse<StoreResponse>> store(
-        ConnectionPtr connection, MultiRequest<StoreRequest> request);
+    void store(ConnectionPtr connection, MultiRequest<StoreRequest> request,
+        Callback<MultiResponse<StoreResponse>> callback);
 
-    std::future<MultiResponse<RemoveResponse>> remove(
-        ConnectionPtr connection, MultiRequest<RemoveRequest> request);
+    void remove(ConnectionPtr connection, MultiRequest<RemoveRequest> request,
+        Callback<MultiResponse<RemoveResponse>> callback);
 
-    std::future<MultiResponse<ArithmeticResponse>> arithmetic(
-        ConnectionPtr connection, MultiRequest<ArithmeticRequest> request);
+    void arithmetic(ConnectionPtr connection,
+        MultiRequest<ArithmeticRequest> request,
+        Callback<MultiResponse<ArithmeticResponse>> callback);
 
-    std::future<HttpResponse> http(
-        ConnectionPtr connection, HttpRequest request);
+    void http(ConnectionPtr connection, HttpRequest request,
+        Callback<HttpResponse> callback);
 
-    std::future<MultiResponse<DurabilityResponse>> durability(
-        ConnectionPtr connection, MultiRequest<DurabilityRequest> request,
-        DurabilityRequestOptions options);
+    void durability(ConnectionPtr connection,
+        MultiRequest<DurabilityRequest> request,
+        DurabilityRequestOptions options,
+        Callback<MultiResponse<DurabilityResponse>> callback);
 
 private:
-    const unsigned short m_workerCount;
-
-    asio::io_service m_ioService;
-    asio::executor_work_guard<asio::io_service::executor_type> m_work;
-
-    std::vector<std::thread> m_workers;
-    std::deque<std::shared_ptr<cb::Connection>> m_connections;
-
-    void join();
+    std::vector<std::shared_ptr<cb::Connection>> m_connections;
 };
 
 } // namespace cb

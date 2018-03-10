@@ -19,8 +19,7 @@
 #include <string>
 #include <vector>
 
-using std::string;
-using std::vector;
+namespace cb {
 
 using asio::ip::tcp;
 using std::error_code;
@@ -28,8 +27,8 @@ using namespace asio;
 
 class asio_socket;
 class asio_timer;
-struct H_Connect;
-struct H_Read;
+struct connect_handler;
+struct read_handler;
 
 class asio_iops : lcb_io_opt_st {
 public:
@@ -57,7 +56,6 @@ public:
 
         ref();
         while (refcount > 2) {
-            // Run until refcount hits 0.
             svc->reset();
             svc->run();
         }
@@ -122,7 +120,7 @@ public:
         }
         m_socket.bind(tcp::endpoint(ipaddr, 0));
         m_parent->ref();
-        socket = m_socket.native_handle(); // lcb_sockdata_t
+        socket = m_socket.native_handle();
     }
 
     ~asio_socket() { m_parent->unref(); }
@@ -150,7 +148,7 @@ public:
 
         port = htons(port);
         m_socket.async_connect(
-            tcp::endpoint(ipaddr, port), H_Connect(callback, this));
+            tcp::endpoint(ipaddr, port), connect_handler(callback, this));
         return 0;
     }
 
@@ -165,15 +163,16 @@ public:
         for (size_t ii = 0; ii < n; ii++) {
             bufs.push_back(mutable_buffer(iov[ii].iov_base, iov[ii].iov_len));
         }
-        m_socket.async_read_some(bufs, H_Read(this));
+        m_socket.async_read_some(bufs, read_handler(this));
         return 0;
     }
 
-    struct H_Write {
+    struct write_handler {
         asio_socket *sock;
         void *arg;
         lcb_ioC_write2_callback cb;
-        H_Write(asio_socket *s, lcb_ioC_write2_callback callback, void *cbarg)
+        write_handler(
+            asio_socket *s, lcb_ioC_write2_callback callback, void *cbarg)
             : sock(s)
             , arg(cbarg)
             , cb(callback)
@@ -201,10 +200,10 @@ public:
         }
     };
 
-    struct H_QueuedWrite : H_Write {
-        H_QueuedWrite(asio_socket *s, lcb_ioC_write2_callback callback,
+    struct queued_write_handler : write_handler {
+        queued_write_handler(asio_socket *s, lcb_ioC_write2_callback callback,
             void *cbarg, std::vector<const_buffer> &_bufs)
-            : H_Write(s, callback, cbarg)
+            : write_handler(s, callback, cbarg)
             , bufs(_bufs)
         {
         }
@@ -214,7 +213,7 @@ public:
     void flush_wpend()
     {
         while (!pending_writes.empty()) {
-            H_QueuedWrite w = pending_writes.front();
+            queued_write_handler w = pending_writes.front();
             pending_writes.pop();
             if (!lcb_closed) {
                 async_write(m_socket, w.bufs, w);
@@ -242,10 +241,10 @@ public:
         }
 
         if (pending_writes.empty() && wcount == 0) {
-            async_write(m_socket, bufs, H_Write(this, cb, uarg));
+            async_write(m_socket, bufs, write_handler(this, cb, uarg));
         }
         else {
-            pending_writes.push(H_QueuedWrite(this, cb, uarg, bufs));
+            pending_writes.push(queued_write_handler(this, cb, uarg, bufs));
         }
         wcount++;
         return 0;
@@ -291,7 +290,6 @@ public:
 
     int get_nameinfo(lcb_nameinfo_st *ni)
     {
-        // Much simpler to just use getsockname!
         int rv;
         socklen_t lenp;
 
@@ -337,11 +335,11 @@ private:
     void *rdarg;
     size_t refcount;
     size_t wcount;
-    bool lcb_closed; // Closed from libcouchbase
-    std::queue<H_QueuedWrite> pending_writes;
+    bool lcb_closed;
+    std::queue<queued_write_handler> pending_writes;
 
-    struct H_Connect {
-        H_Connect(lcb_io_connect_cb cb, asio_socket *s)
+    struct connect_handler {
+        connect_handler(lcb_io_connect_cb cb, asio_socket *s)
             : callback(cb)
             , sock(s)
         {
@@ -358,9 +356,9 @@ private:
         }
     };
 
-    struct H_Read {
+    struct read_handler {
         asio_socket *sock;
-        H_Read(asio_socket *s)
+        read_handler(asio_socket *s)
             : sock(s)
         {
         }
@@ -526,7 +524,6 @@ static void get_procs(int, lcb_loop_procs *loop, lcb_timer_procs *tm,
     iocp->close = close_socket;
     iocp->is_closed = check_closed;
 
-    /** Stuff we don't use */
     iocp->write = NULL;
     iocp->wballoc = NULL;
     iocp->wbfree = NULL;
@@ -552,6 +549,7 @@ asio_iops::asio_iops(io_service *svc_in)
         is_service_owner = true;
     }
 }
+}
 
 extern "C" {
 lcb_error_t lcb_create_boost_asio_io_opts(int, lcb_io_opt_st **io, void *arg)
@@ -559,7 +557,7 @@ lcb_error_t lcb_create_boost_asio_io_opts(int, lcb_io_opt_st **io, void *arg)
     assert(io != nullptr);
     assert(arg != nullptr);
 
-    *io = (lcb_io_opt_st *)new asio_iops((io_service *)arg);
+    *io = (lcb_io_opt_st *)new cb::asio_iops((asio::io_service *)arg);
 
     return LCB_SUCCESS;
 }

@@ -17,7 +17,8 @@ class Connection;
 
 class ConnectResponse : public Response {
 public:
-    ConnectResponse(lcb_error_t err, ConnectionPtr connection);
+    ConnectResponse(
+        lcb_error_t err = LCB_SUCCESS, ConnectionPtr connection = nullptr);
 
     std::shared_ptr<Connection> connection() const;
 

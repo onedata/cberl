@@ -14,8 +14,6 @@ HttpResponse::HttpResponse(lcb_error_t err)
 {
 }
 
-void HttpResponse::setError(lcb_error_t err) { m_err = err; }
-
 void HttpResponse::setStatus(lcb_http_status_t status) { m_status = status; }
 
 void HttpResponse::setBody(const void *body, std::size_t bodySize)

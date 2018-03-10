@@ -11,11 +11,18 @@ namespace {
 
 void bootstrapCallback(lcb_t instance, lcb_error_t err)
 {
-    auto conn = const_cast<cb::Connection *>(
+
+    auto connection = const_cast<cb::Connection *>(
         static_cast<const cb::Connection *>(lcb_get_cookie(instance)));
 
-    auto &promise = conn->connectPromise();
-    promise.set_value(cb::ConnectResponse{err, conn->getShared()});
+    auto responseId = reinterpret_cast<uint64_t>(connection);
+
+    dynamic_cast<cb::ConnectionResponses *>(connection)
+        ->getResponse(responseId)
+        .setError(err);
+
+    dynamic_cast<cb::ConnectionResponses *>(connection)
+        ->emitResponse(responseId);
 }
 
 void getCallback(lcb_t instance, const void *cookie, lcb_error_t err,
@@ -24,10 +31,10 @@ void getCallback(lcb_t instance, const void *cookie, lcb_error_t err,
     auto connection = const_cast<cb::Connection *>(
         static_cast<const cb::Connection *>(lcb_get_cookie(instance)));
 
-    auto promiseId = reinterpret_cast<const uint64_t>(cookie);
+    auto responseId = reinterpret_cast<const uint64_t>(cookie);
 
     auto &response =
-        dynamic_cast<cb::GetPromises *>(connection)->promisedValue(promiseId);
+        dynamic_cast<cb::GetResponses *>(connection)->getResponse(responseId);
 
     if (err == LCB_SUCCESS) {
         response.add(
@@ -38,8 +45,11 @@ void getCallback(lcb_t instance, const void *cookie, lcb_error_t err,
         response.add(cb::GetResponse{err, resp->v.v0.key, resp->v.v0.nkey});
     }
 
-    if (response.complete())
-        dynamic_cast<cb::GetPromises *>(connection)->fullfillPromise(promiseId);
+    if (response.complete()) {
+        dynamic_cast<cb::GetResponses *>(connection)->emitResponse(responseId);
+        dynamic_cast<cb::GetResponses *>(connection)
+            ->forgetResponse(responseId);
+    }
 }
 
 void storeCallback(lcb_t instance, const void *cookie, lcb_storage_t operation,
@@ -48,10 +58,10 @@ void storeCallback(lcb_t instance, const void *cookie, lcb_storage_t operation,
     auto connection = const_cast<cb::Connection *>(
         static_cast<const cb::Connection *>(lcb_get_cookie(instance)));
 
-    auto promiseId = reinterpret_cast<const uint64_t>(cookie);
+    auto responseId = reinterpret_cast<const uint64_t>(cookie);
 
     auto &response =
-        dynamic_cast<cb::StorePromises *>(connection)->promisedValue(promiseId);
+        dynamic_cast<cb::StoreResponses *>(connection)->getResponse(responseId);
 
     if (err == LCB_SUCCESS) {
         response.add(
@@ -61,9 +71,12 @@ void storeCallback(lcb_t instance, const void *cookie, lcb_storage_t operation,
         response.add(cb::StoreResponse{err, resp->v.v0.key, resp->v.v0.nkey});
     }
 
-    if (response.complete())
-        dynamic_cast<cb::StorePromises *>(connection)
-            ->fullfillPromise(promiseId);
+    if (response.complete()) {
+        dynamic_cast<cb::StoreResponses *>(connection)
+            ->emitResponse(responseId);
+        dynamic_cast<cb::StoreResponses *>(connection)
+            ->forgetResponse(responseId);
+    }
 }
 
 void arithmeticCallback(lcb_t instance, const void *cookie, lcb_error_t err,
@@ -72,10 +85,10 @@ void arithmeticCallback(lcb_t instance, const void *cookie, lcb_error_t err,
     auto connection = const_cast<cb::Connection *>(
         static_cast<const cb::Connection *>(lcb_get_cookie(instance)));
 
-    auto promiseId = reinterpret_cast<const uint64_t>(cookie);
+    auto responseId = reinterpret_cast<const uint64_t>(cookie);
 
-    auto &response = dynamic_cast<cb::ArithmeticPromises *>(connection)
-                         ->promisedValue(promiseId);
+    auto &response = dynamic_cast<cb::ArithmeticResponses *>(connection)
+                         ->getResponse(responseId);
 
     if (err == LCB_SUCCESS) {
         response.add(cb::ArithmeticResponse{
@@ -86,9 +99,12 @@ void arithmeticCallback(lcb_t instance, const void *cookie, lcb_error_t err,
             cb::ArithmeticResponse{err, resp->v.v0.key, resp->v.v0.nkey});
     }
 
-    if (response.complete())
-        dynamic_cast<cb::ArithmeticPromises *>(connection)
-            ->fullfillPromise(promiseId);
+    if (response.complete()) {
+        dynamic_cast<cb::ArithmeticResponses *>(connection)
+            ->emitResponse(responseId);
+        dynamic_cast<cb::ArithmeticResponses *>(connection)
+            ->forgetResponse(responseId);
+    }
 }
 
 void removeCallback(lcb_t instance, const void *cookie, lcb_error_t err,
@@ -97,16 +113,19 @@ void removeCallback(lcb_t instance, const void *cookie, lcb_error_t err,
     auto connection = const_cast<cb::Connection *>(
         static_cast<const cb::Connection *>(lcb_get_cookie(instance)));
 
-    auto promiseId = reinterpret_cast<const uint64_t>(cookie);
+    auto responseId = reinterpret_cast<const uint64_t>(cookie);
 
-    auto &response = dynamic_cast<cb::RemovePromises *>(connection)
-                         ->promisedValue(promiseId);
+    auto &response = dynamic_cast<cb::RemoveResponses *>(connection)
+                         ->getResponse(responseId);
 
     response.add(cb::RemoveResponse{err, resp->v.v0.key, resp->v.v0.nkey});
 
-    if (response.complete())
-        dynamic_cast<cb::RemovePromises *>(connection)
-            ->fullfillPromise(promiseId);
+    if (response.complete()) {
+        dynamic_cast<cb::RemoveResponses *>(connection)
+            ->emitResponse(responseId);
+        dynamic_cast<cb::RemoveResponses *>(connection)
+            ->forgetResponse(responseId);
+    }
 }
 
 void httpCallback(lcb_http_request_t request, lcb_t instance,
@@ -115,10 +134,10 @@ void httpCallback(lcb_http_request_t request, lcb_t instance,
     auto connection = const_cast<cb::Connection *>(
         static_cast<const cb::Connection *>(lcb_get_cookie(instance)));
 
-    auto promiseId = reinterpret_cast<const uint64_t>(cookie);
+    auto responseId = reinterpret_cast<const uint64_t>(cookie);
 
     auto &response =
-        dynamic_cast<cb::HttpPromises *>(connection)->promisedValue(promiseId);
+        dynamic_cast<cb::HttpResponses *>(connection)->getResponse(responseId);
 
     response.setError(err);
     if (err == LCB_SUCCESS) {
@@ -126,7 +145,8 @@ void httpCallback(lcb_http_request_t request, lcb_t instance,
         response.setBody(resp->v.v0.bytes, resp->v.v0.nbytes);
     }
 
-    dynamic_cast<cb::HttpPromises *>(connection)->fullfillPromise(promiseId);
+    dynamic_cast<cb::HttpResponses *>(connection)->emitResponse(responseId);
+    dynamic_cast<cb::HttpResponses *>(connection)->forgetResponse(responseId);
 }
 
 void durabilityCallback(lcb_t instance, const void *cookie, lcb_error_t err,
@@ -135,10 +155,10 @@ void durabilityCallback(lcb_t instance, const void *cookie, lcb_error_t err,
     auto connection = const_cast<cb::Connection *>(
         static_cast<const cb::Connection *>(lcb_get_cookie(instance)));
 
-    auto promiseId = reinterpret_cast<const uint64_t>(cookie);
+    auto responseId = reinterpret_cast<const uint64_t>(cookie);
 
-    auto &response = dynamic_cast<cb::DurabilityPromises *>(connection)
-                         ->promisedValue(promiseId);
+    auto &response = dynamic_cast<cb::DurabilityResponses *>(connection)
+                         ->getResponse(responseId);
 
     if (err == LCB_SUCCESS) {
         response.add(cb::DurabilityResponse{
@@ -149,17 +169,26 @@ void durabilityCallback(lcb_t instance, const void *cookie, lcb_error_t err,
             cb::DurabilityResponse{err, resp->v.v0.key, resp->v.v0.nkey});
     }
 
-    if (response.complete())
-        dynamic_cast<cb::DurabilityPromises *>(connection)
-            ->fullfillPromise(promiseId);
+    if (response.complete()) {
+        dynamic_cast<cb::DurabilityResponses *>(connection)
+            ->emitResponse(responseId);
+        dynamic_cast<cb::DurabilityResponses *>(connection)
+            ->forgetResponse(responseId);
+    }
 }
 } // namespace
 
 namespace cb {
 
-Connection::Connection(const ConnectRequest &request,
-    asio::io_service *ioService, std::promise<ConnectResponse> &&connectPromise)
-    : m_connectPromise(std::move(connectPromise))
+Connection::Connection(const short unsigned int workerCount)
+    : m_workerCount{workerCount}
+    , m_ioService{m_workerCount}
+    , m_work{asio::make_work_guard(m_ioService)}
+{
+}
+
+void Connection::bootstrap(
+    const ConnectRequest &request, Callback<ConnectResponse> callback)
 {
     struct lcb_create_st createOpts = {0};
     createOpts.v.v0.host = request.host().c_str();
@@ -167,9 +196,7 @@ Connection::Connection(const ConnectRequest &request,
     createOpts.v.v0.passwd = request.password().c_str();
     createOpts.v.v0.bucket = request.bucket().c_str();
 
-    assert(ioService != nullptr);
-
-    lcb_create_boost_asio_io_opts(0, &createOpts.v.v3.io, ioService);
+    lcb_create_boost_asio_io_opts(0, &createOpts.v.v3.io, &m_ioService);
 
     lcb_error_t err = lcb_create(&m_instance, &createOpts);
     if (err != LCB_SUCCESS) {
@@ -219,21 +246,37 @@ Connection::Connection(const ConnectRequest &request,
         }
     }
 
+    for (size_t i = 0; i < m_workerCount; ++i) {
+        m_workers.emplace_back([&]() { m_ioService.run(); });
+    }
+
+    cb::ConnectResponse response{LCB_SUCCESS, getShared()};
+
+    ConnectionResponses::storeResponse(reinterpret_cast<uint64_t>(this),
+        std::move(response), std::move(callback));
+
     err = lcb_connect(m_instance);
     if (err != LCB_SUCCESS) {
         throw err;
     }
 }
 
-Connection::~Connection() { lcb_destroy(m_instance); }
-
-std::promise<cb::ConnectResponse> &Connection::connectPromise()
+void Connection::join()
 {
-    return m_connectPromise;
+    for (auto &thread : m_workers)
+        if (thread.joinable())
+            thread.join();
+}
+
+Connection::~Connection()
+{
+    lcb_destroy(m_instance);
+    m_ioService.stop();
+    join();
 }
 
 void Connection::get(const MultiRequest<GetRequest> &request,
-    std::promise<MultiResponse<GetResponse>> &&promise)
+    Callback<MultiResponse<GetResponse>> callback)
 {
     const auto &requests = request.requests();
     std::vector<lcb_get_cmd_t> commands{requests.size()};
@@ -251,19 +294,18 @@ void Connection::get(const MultiRequest<GetRequest> &request,
 
     cb::MultiResponse<cb::GetResponse> response{LCB_SUCCESS, requests.size()};
 
-    auto promiseId =
-        GetPromises::addPromise(std::move(promise), std::move(response));
-    auto error = lcb_get(m_instance, reinterpret_cast<void *>(promiseId),
+    auto requestId =
+        GetResponses::storeResponse(std::move(response), std::move(callback));
+    auto err = lcb_get(m_instance, reinterpret_cast<void *>(requestId),
         requests.size(), commandsPtr.data());
 
-    if (error != LCB_SUCCESS) {
-        GetPromises::cancelPromise(
-            promiseId, std::runtime_error(lcb_strerror(m_instance, error)));
+    if (err != LCB_SUCCESS) {
+        throw err;
     }
 }
 
 void Connection::store(const MultiRequest<StoreRequest> &request,
-    std::promise<MultiResponse<StoreResponse>> &&promise)
+    Callback<MultiResponse<StoreResponse>> callback)
 {
     const auto &requests = request.requests();
     std::vector<lcb_store_cmd_t> commands{requests.size()};
@@ -285,19 +327,18 @@ void Connection::store(const MultiRequest<StoreRequest> &request,
 
     cb::MultiResponse<cb::StoreResponse> response{LCB_SUCCESS, requests.size()};
 
-    auto promiseId =
-        StorePromises::addPromise(std::move(promise), std::move(response));
-    auto error = lcb_store(m_instance, reinterpret_cast<void *>(promiseId),
+    auto requestId =
+        StoreResponses::storeResponse(std::move(response), std::move(callback));
+    auto err = lcb_store(m_instance, reinterpret_cast<void *>(requestId),
         requests.size(), commandsPtr.data());
 
-    if (error != LCB_SUCCESS) {
-        StorePromises::cancelPromise(
-            promiseId, std::runtime_error(lcb_strerror(m_instance, error)));
+    if (err != LCB_SUCCESS) {
+        throw err;
     }
 }
 
 void Connection::remove(const MultiRequest<RemoveRequest> &request,
-    std::promise<MultiResponse<RemoveResponse>> &&promise)
+    Callback<MultiResponse<RemoveResponse>> callback)
 {
     const auto &requests = request.requests();
     std::vector<lcb_remove_cmd_t> commands{requests.size()};
@@ -315,19 +356,18 @@ void Connection::remove(const MultiRequest<RemoveRequest> &request,
     cb::MultiResponse<cb::RemoveResponse> response{
         LCB_SUCCESS, requests.size()};
 
-    auto promiseId =
-        RemovePromises::addPromise(std::move(promise), std::move(response));
-    auto error = lcb_remove(m_instance, reinterpret_cast<void *>(promiseId),
+    auto requestId = RemoveResponses::storeResponse(
+        std::move(response), std::move(callback));
+    auto err = lcb_remove(m_instance, reinterpret_cast<void *>(requestId),
         requests.size(), commandsPtr.data());
 
-    if (error != LCB_SUCCESS) {
-        RemovePromises::cancelPromise(
-            promiseId, std::runtime_error(lcb_strerror(m_instance, error)));
+    if (err != LCB_SUCCESS) {
+        throw err;
     }
 }
 
 void Connection::arithmetic(const MultiRequest<ArithmeticRequest> &request,
-    std::promise<MultiResponse<ArithmeticResponse>> &&promise)
+    Callback<MultiResponse<ArithmeticResponse>> callback)
 {
     const auto &requests = request.requests();
     std::vector<lcb_arithmetic_cmd_t> commands{requests.size()};
@@ -348,19 +388,18 @@ void Connection::arithmetic(const MultiRequest<ArithmeticRequest> &request,
     cb::MultiResponse<cb::ArithmeticResponse> response{
         LCB_SUCCESS, requests.size()};
 
-    auto promiseId =
-        ArithmeticPromises::addPromise(std::move(promise), std::move(response));
-    auto error = lcb_arithmetic(m_instance, reinterpret_cast<void *>(promiseId),
+    auto requestId = ArithmeticResponses::storeResponse(
+        std::move(response), std::move(callback));
+    auto err = lcb_arithmetic(m_instance, reinterpret_cast<void *>(requestId),
         requests.size(), commandsPtr.data());
 
-    if (error != LCB_SUCCESS) {
-        ArithmeticPromises::cancelPromise(
-            promiseId, std::runtime_error(lcb_strerror(m_instance, error)));
+    if (err != LCB_SUCCESS) {
+        throw err;
     }
 }
 
 void Connection::http(
-    const HttpRequest &request, std::promise<HttpResponse> &&promise)
+    const HttpRequest &request, Callback<HttpResponse> callback)
 {
     lcb_http_request_t req;
     lcb_http_cmd_t command;
@@ -375,20 +414,19 @@ void Connection::http(
 
     cb::HttpResponse response{LCB_SUCCESS};
 
-    auto promiseId =
-        HttpPromises::addPromise(std::move(promise), std::move(response));
-    auto error = lcb_make_http_request(m_instance,
-        reinterpret_cast<void *>(promiseId), request.type(), &command, &req);
+    auto requestId =
+        HttpResponses::storeResponse(std::move(response), std::move(callback));
+    auto err = lcb_make_http_request(m_instance,
+        reinterpret_cast<void *>(requestId), request.type(), &command, &req);
 
-    if (error != LCB_SUCCESS) {
-        ArithmeticPromises::cancelPromise(
-            promiseId, std::runtime_error(lcb_strerror(m_instance, error)));
+    if (err != LCB_SUCCESS) {
+        throw err;
     }
 }
 
 void Connection::durability(const MultiRequest<DurabilityRequest> &request,
     const DurabilityRequestOptions &requestOptions,
-    std::promise<MultiResponse<DurabilityResponse>> &&promise)
+    Callback<MultiResponse<DurabilityResponse>> callback)
 {
     const auto &requests = request.requests();
     std::vector<lcb_durability_cmd_t> commands{requests.size()};
@@ -411,15 +449,14 @@ void Connection::durability(const MultiRequest<DurabilityRequest> &request,
     cb::MultiResponse<cb::DurabilityResponse> response{
         LCB_SUCCESS, requests.size()};
 
-    auto promiseId =
-        DurabilityPromises::addPromise(std::move(promise), std::move(response));
-    auto error =
-        lcb_durability_poll(m_instance, reinterpret_cast<void *>(promiseId),
+    auto requestId = DurabilityResponses::storeResponse(
+        std::move(response), std::move(callback));
+    auto err =
+        lcb_durability_poll(m_instance, reinterpret_cast<void *>(requestId),
             &options, requests.size(), commandsPtr.data());
 
-    if (error != LCB_SUCCESS) {
-        DurabilityPromises::cancelPromise(
-            promiseId, std::runtime_error(lcb_strerror(m_instance, error)));
+    if (err != LCB_SUCCESS) {
+        throw err;
     }
 }
 

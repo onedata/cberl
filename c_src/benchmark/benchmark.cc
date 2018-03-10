@@ -26,8 +26,6 @@ auto getBatch(std::shared_ptr<cb::Client> client,
 {
     auto start = std::chrono::system_clock::now();
 
-    std::vector<std::future<cb::MultiResponse<cb::GetResponse>>> getFutures;
-
     std::vector<cb::GetRequest::Raw> reqs;
 
     for (int i = 0; i < batchSize; i++) {
@@ -38,11 +36,18 @@ auto getBatch(std::shared_ptr<cb::Client> client,
     }
 
     cb::MultiRequest<cb::GetRequest> getRequest(std::move(reqs));
-    getFutures.push_back(client->get(connection, std::move(getRequest)));
 
-    for (auto &f : getFutures) {
-        f.get();
-    }
+    auto p =
+        std::make_shared<std::promise<cb::MultiResponse<cb::GetResponse>>>();
+    auto f = p->get_future();
+
+    client->get(connection, std::move(getRequest),
+        [p = std::move(p)](
+            const cb::MultiResponse<cb::GetResponse> &response) mutable {
+            p->set_value(response);
+        });
+
+    f.get();
 
     auto end = std::chrono::system_clock::now();
     auto elapsed =
@@ -57,8 +62,6 @@ auto storeBatch(std::shared_ptr<cb::Client> client,
 {
     auto start = std::chrono::system_clock::now();
 
-    std::vector<std::future<cb::MultiResponse<cb::StoreResponse>>> storeFutures;
-
     std::vector<cb::StoreRequest::Raw> reqs;
 
     for (int i = 0; i < batchSize; i++) {
@@ -71,11 +74,17 @@ auto storeBatch(std::shared_ptr<cb::Client> client,
 
     cb::MultiRequest<cb::StoreRequest> storeRequest(reqs);
 
-    storeFutures.push_back(client->store(connection, std::move(storeRequest)));
+    auto p =
+        std::make_shared<std::promise<cb::MultiResponse<cb::StoreResponse>>>();
+    auto f = p->get_future();
 
-    for (auto &f : storeFutures) {
-        f.get();
-    }
+    client->store(connection, std::move(storeRequest),
+        [p = std::move(p)](
+            const cb::MultiResponse<cb::StoreResponse> &response) mutable {
+            p->set_value(response);
+        });
+
+    f.get();
 
     auto end = std::chrono::system_clock::now();
     auto elapsed =
@@ -103,12 +112,17 @@ auto removeBatch(std::shared_ptr<cb::Client> client,
 
     cb::MultiRequest<cb::RemoveRequest> removeRequest(reqs);
 
-    removeFutures.push_back(
-        client->remove(connection, std::move(removeRequest)));
+    auto p =
+        std::make_shared<std::promise<cb::MultiResponse<cb::RemoveResponse>>>();
+    auto f = p->get_future();
 
-    for (auto &f : removeFutures) {
-        f.get();
-    }
+    client->remove(connection, std::move(removeRequest),
+        [p = std::move(p)](
+            const cb::MultiResponse<cb::RemoveResponse> &response) mutable {
+            p->set_value(response);
+        });
+
+    f.get();
 
     auto end = std::chrono::system_clock::now();
     auto elapsed =
@@ -137,12 +151,17 @@ auto durabilityBatch(std::shared_ptr<cb::Client> client,
     cb::MultiRequest<cb::DurabilityRequest> durabilityRequest(reqs);
     std::tuple<std::int32_t, std::int32_t> dopts = std::make_tuple(1, 1);
 
-    durabilityFutures.push_back(
-        client->durability(connection, std::move(durabilityRequest), dopts));
+    auto p = std::make_shared<
+        std::promise<cb::MultiResponse<cb::DurabilityResponse>>>();
+    auto f = p->get_future();
 
-    for (auto &f : durabilityFutures) {
-        f.get();
-    }
+    client->durability(connection, std::move(durabilityRequest), dopts,
+        [p = std::move(p)](
+            const cb::MultiResponse<cb::DurabilityResponse> &response) mutable {
+            p->set_value(response);
+        });
+
+    f.get();
 
     auto end = std::chrono::system_clock::now();
     auto elapsed =
@@ -161,11 +180,11 @@ auto durabilityBatch(std::shared_ptr<cb::Client> client,
  */
 int main(int argc, char *argv[])
 {
-    auto host = "192.168.1.5:8091";
+    auto host = "localhost:8091";
     auto user = "";
     auto password = "";
     auto bucket = "default";
-    auto workerCount = 250;
+    auto workerCount = 20;
     auto batchSize = 1200;
 
     if (argc > 1) {
@@ -187,16 +206,6 @@ int main(int argc, char *argv[])
         batchSize = std::stoi(argv[6]);
     }
 
-    auto client = std::make_shared<cb::Client>();
-
-    cb::ConnectRequest request{host, user, password, bucket, {}};
-
-    auto connectFuture = client->connect(std::move(request));
-
-    auto connectResponse = connectFuture.get();
-
-    std::shared_ptr<cb::Connection> connection = connectResponse.connection();
-
     auto benchmarkWorker = [&](std::string prefix) {
         std::vector<uint32_t> getEmptyTimes;
         std::vector<uint32_t> storeTimes;
@@ -206,8 +215,25 @@ int main(int argc, char *argv[])
 
         int repeat = 10;
 
-        while (repeat--) {
+        auto client = std::make_shared<cb::Client>();
 
+        cb::ConnectRequest request{host, user, password, bucket, {}};
+
+        auto p = std::make_shared<std::promise<cb::ConnectResponse>>();
+        auto connectFuture = p->get_future();
+
+        client->connect(std::move(request),
+            [p = std::move(p)](const cb::ConnectResponse &response) mutable {
+                p->set_value(response);
+            });
+
+        std::cout << "Connected to Couchbase Server - starting benchmark..."
+                  << std::endl;
+
+        auto connectResponse = connectFuture.get();
+        auto connection = connectResponse.connection();
+
+        while (repeat--) {
             auto getEmptyTime = getBatch(client, connection, prefix, batchSize);
             auto storeTime = storeBatch(client, connection, prefix, batchSize);
             auto getTime = getBatch(client, connection, prefix, batchSize);

@@ -38,6 +38,8 @@ class Response {
 public:
     Response(lcb_error_t err = LCB_SUCCESS);
 
+    void setError(lcb_error_t err);
+
 #if !defined(NO_ERLANG)
     nifpp::TERM toTerm(const Env &env) const;
 #endif
