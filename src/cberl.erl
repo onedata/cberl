@@ -14,7 +14,7 @@
 -behaviour(gen_server).
 
 %% API
--export([connect/6, get/5, bulk_get/3, store/8, bulk_store/3, remove/4,
+-export([connect/6, connect/7, get/5, bulk_get/3, store/8, bulk_store/3, remove/4,
     bulk_remove/3, arithmetic/6, bulk_arithmetic/3, http/7, durability/6,
     bulk_durability/4]).
 
@@ -101,6 +101,18 @@
 connect(Host, Username, Password, Bucket, Opts, Timeout) ->
     gen_server:start_link(?MODULE, [
         Host, Username, Password, Bucket, Opts, Timeout
+    ], []).
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Creates connection to a CouchBase database.
+%% @end
+%%--------------------------------------------------------------------
+-spec connect(host(), username(), password(), bucket(), [connect_opt()],
+    timeout(), cberl_nif:client()) -> {ok, connection()} | no_return().
+connect(Host, Username, Password, Bucket, Opts, Timeout, Client) ->
+    gen_server:start_link(?MODULE, [
+        Host, Username, Password, Bucket, Opts, Timeout, Client
     ], []).
 
 %%--------------------------------------------------------------------
@@ -282,6 +294,8 @@ bulk_durability(Connection, Requests, Options, Timeout) ->
     {stop, Reason :: term()} | ignore.
 init([Host, Username, Password, Bucket, Opts, Timeout]) ->
     {ok, Client} = cberl_nif:new(),
+    init([Host, Username, Password, Bucket, Opts, Timeout, Client]);
+init([Host, Username, Password, Bucket, Opts, Timeout, Client]) ->
     {ok, Ref} = cberl_nif:connect(
         self(), Client, Host, Username, Password, Bucket, Opts
     ),
