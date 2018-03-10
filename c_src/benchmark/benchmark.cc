@@ -165,7 +165,7 @@ int main(int argc, char *argv[])
     auto user = "";
     auto password = "";
     auto bucket = "default";
-    auto workerCount = 10;
+    auto workerCount = 250;
     auto batchSize = 1200;
 
     if (argc > 1) {
@@ -191,16 +191,22 @@ int main(int argc, char *argv[])
 
     cb::ConnectRequest request{host, user, password, bucket, {}};
 
+    auto connectFuture = client->connect(std::move(request));
+
+    auto connectResponse = connectFuture.get();
+
+    std::shared_ptr<cb::Connection> connection = connectResponse.connection();
+
     auto benchmarkWorker = [&](std::string prefix) {
+        std::vector<uint32_t> getEmptyTimes;
+        std::vector<uint32_t> storeTimes;
+        std::vector<uint32_t> getTimes;
+        std::vector<uint32_t> durabilityTimes;
+        std::vector<uint32_t> removeTimes;
 
-        auto connectFuture = client->connect(std::move(request));
+        int repeat = 10;
 
-        auto connectResponse = connectFuture.get();
-
-        std::shared_ptr<cb::Connection> connection =
-            connectResponse.connection();
-
-        while (1) {
+        while (repeat--) {
 
             auto getEmptyTime = getBatch(client, connection, prefix, batchSize);
             auto storeTime = storeBatch(client, connection, prefix, batchSize);
@@ -210,13 +216,41 @@ int main(int argc, char *argv[])
             auto removeTime =
                 removeBatch(client, connection, prefix, batchSize);
 
-            std::cout << prefix << " SIZE=" << batchSize << ": ("
-                      << "GET_EMPTY=" << getEmptyTime.count()
-                      << " [ms], STORE=" << storeTime.count()
-                      << " [ms], GET=" << getTime.count()
-                      << " [ms], DURABILITY=" << durabilityTime.count()
-                      << " [ms], REMOVE=" << removeTime.count() << " [ms])\n";
+            getEmptyTimes.push_back(getEmptyTime.count());
+            storeTimes.push_back(storeTime.count());
+            getTimes.push_back(getTime.count());
+            durabilityTimes.push_back(durabilityTime.count());
+            removeTimes.push_back(removeTime.count());
+
+            std::cout << prefix << " -- " << repeat << std::endl;
         }
+
+        auto getEmptyAverage =
+            std::accumulate(getEmptyTimes.begin(), getEmptyTimes.end(), 0) /
+            getEmptyTimes.size();
+
+        auto storeAverage =
+            std::accumulate(storeTimes.begin(), storeTimes.end(), 0) /
+            storeTimes.size();
+
+        auto getAverage = std::accumulate(getTimes.begin(), getTimes.end(), 0) /
+            getTimes.size();
+
+        auto durabilityAverage =
+            std::accumulate(durabilityTimes.begin(), durabilityTimes.end(), 0) /
+            durabilityTimes.size();
+
+        auto removeAverage =
+            std::accumulate(removeTimes.begin(), removeTimes.end(), 0) /
+            removeTimes.size();
+
+        std::cout << prefix << " SIZE=" << batchSize << ": ("
+                  << "GET_EMPTY=" << getEmptyAverage
+                  << " [ms], STORE=" << storeAverage
+                  << " [ms], GET=" << getAverage
+                  << " [ms], DURABILITY=" << durabilityAverage
+                  << " [ms], REMOVE=" << removeAverage << " [ms])\n";
+
     };
 
     std::vector<std::thread> workers;
