@@ -184,7 +184,7 @@ int main(int argc, char *argv[])
     auto user = "";
     auto password = "";
     auto bucket = "default";
-    auto workerCount = 20;
+    auto workerCount = 10;
     auto batchSize = 1200;
 
     if (argc > 1) {
@@ -206,6 +206,31 @@ int main(int argc, char *argv[])
         batchSize = std::stoi(argv[6]);
     }
 
+    auto client = std::make_shared<cb::Client>();
+
+    cb::ConnectRequest request{host, user, password, bucket, {}};
+
+    auto p = std::make_shared<std::promise<cb::ConnectResponse>>();
+    auto connectFuture = p->get_future();
+
+    client->connect(std::move(request),
+        [p = std::move(p)](const cb::ConnectResponse &response) mutable {
+            p->set_value(response);
+        });
+
+    auto connectResponse = connectFuture.get();
+
+    if (connectResponse.error() != LCB_SUCCESS) {
+        std::cout << "Cannot connect to Couchbase Server - exiting..."
+                  << std::endl;
+        return 1;
+    }
+
+    std::cout << "Connected to Couchbase Server - starting benchmark..."
+              << std::endl;
+
+    auto connection = connectResponse.connection();
+
     auto benchmarkWorker = [&](std::string prefix) {
         std::vector<uint32_t> getEmptyTimes;
         std::vector<uint32_t> storeTimes;
@@ -214,24 +239,6 @@ int main(int argc, char *argv[])
         std::vector<uint32_t> removeTimes;
 
         int repeat = 10;
-
-        auto client = std::make_shared<cb::Client>();
-
-        cb::ConnectRequest request{host, user, password, bucket, {}};
-
-        auto p = std::make_shared<std::promise<cb::ConnectResponse>>();
-        auto connectFuture = p->get_future();
-
-        client->connect(std::move(request),
-            [p = std::move(p)](const cb::ConnectResponse &response) mutable {
-                p->set_value(response);
-            });
-
-        std::cout << "Connected to Couchbase Server - starting benchmark..."
-                  << std::endl;
-
-        auto connectResponse = connectFuture.get();
-        auto connection = connectResponse.connection();
 
         while (repeat--) {
             auto getEmptyTime = getBatch(client, connection, prefix, batchSize);

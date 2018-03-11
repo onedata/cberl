@@ -189,7 +189,7 @@ bulk_durability_test(Config) ->
 %%%===================================================================
 
 init_per_testcase(_Case, Config) ->
-    Host = proplists:get_value(host, Config, <<"192.168.1.5">>),
+    Host = proplists:get_value(host, Config, <<"localhost">>),
     Username = proplists:get_value(username, Config, <<>>),
     Password = proplists:get_value(password, Config, <<>>),
     Bucket = proplists:get_value(bucket, Config, <<"default">>),

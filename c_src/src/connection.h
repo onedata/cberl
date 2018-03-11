@@ -42,14 +42,14 @@ class Connection : public ConnectionResponses,
                    public DurabilityResponses,
                    public std::enable_shared_from_this<Connection> {
 public:
-    Connection(const short unsigned int workerCount = 1);
+    Connection();
 
     ~Connection();
 
     std::shared_ptr<Connection> getShared() { return shared_from_this(); }
 
-    void bootstrap(
-        const ConnectRequest &request, Callback<ConnectResponse> callback);
+    void bootstrap(const ConnectRequest &request, asio::io_service *ioService,
+        Callback<ConnectResponse> callback);
 
     void get(const MultiRequest<GetRequest> &request,
         Callback<MultiResponse<GetResponse>> callback);
@@ -70,12 +70,6 @@ public:
         Callback<MultiResponse<DurabilityResponse>> callback);
 
 private:
-    const unsigned short m_workerCount;
-
-    asio::io_service m_ioService;
-    asio::executor_work_guard<asio::io_service::executor_type> m_work;
-    std::vector<std::thread> m_workers;
-
     lcb_t m_instance;
 
     void join();

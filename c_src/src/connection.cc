@@ -146,7 +146,8 @@ void httpCallback(lcb_http_request_t request, lcb_t instance,
     }
 
     dynamic_cast<cb::HttpResponses *>(connection)->emitResponse(responseId);
-    dynamic_cast<cb::HttpResponses *>(connection)->forgetResponse(responseId);
+     dynamic_cast<cb::HttpResponses
+     *>(connection)->forgetResponse(responseId);
 }
 
 void durabilityCallback(lcb_t instance, const void *cookie, lcb_error_t err,
@@ -180,15 +181,10 @@ void durabilityCallback(lcb_t instance, const void *cookie, lcb_error_t err,
 
 namespace cb {
 
-Connection::Connection(const short unsigned int workerCount)
-    : m_workerCount{workerCount}
-    , m_ioService{m_workerCount}
-    , m_work{asio::make_work_guard(m_ioService)}
-{
-}
+Connection::Connection() {}
 
-void Connection::bootstrap(
-    const ConnectRequest &request, Callback<ConnectResponse> callback)
+void Connection::bootstrap(const ConnectRequest &request,
+    asio::io_service *ioService, Callback<ConnectResponse> callback)
 {
     struct lcb_create_st createOpts = {0};
     createOpts.v.v0.host = request.host().c_str();
@@ -196,7 +192,7 @@ void Connection::bootstrap(
     createOpts.v.v0.passwd = request.password().c_str();
     createOpts.v.v0.bucket = request.bucket().c_str();
 
-    lcb_create_boost_asio_io_opts(0, &createOpts.v.v3.io, &m_ioService);
+    lcb_create_boost_asio_io_opts(0, &createOpts.v.v3.io, ioService);
 
     lcb_error_t err = lcb_create(&m_instance, &createOpts);
     if (err != LCB_SUCCESS) {
@@ -246,10 +242,6 @@ void Connection::bootstrap(
         }
     }
 
-    for (size_t i = 0; i < m_workerCount; ++i) {
-        m_workers.emplace_back([&]() { m_ioService.run(); });
-    }
-
     cb::ConnectResponse response{LCB_SUCCESS, getShared()};
 
     ConnectionResponses::storeResponse(reinterpret_cast<uint64_t>(this),
@@ -261,18 +253,9 @@ void Connection::bootstrap(
     }
 }
 
-void Connection::join()
-{
-    for (auto &thread : m_workers)
-        if (thread.joinable())
-            thread.join();
-}
-
 Connection::~Connection()
 {
     lcb_destroy(m_instance);
-    m_ioService.stop();
-    join();
 }
 
 void Connection::get(const MultiRequest<GetRequest> &request,
@@ -296,11 +279,14 @@ void Connection::get(const MultiRequest<GetRequest> &request,
 
     auto requestId =
         GetResponses::storeResponse(std::move(response), std::move(callback));
+
     auto err = lcb_get(m_instance, reinterpret_cast<void *>(requestId),
         requests.size(), commandsPtr.data());
 
     if (err != LCB_SUCCESS) {
-        throw err;
+        GetResponses::getResponse(requestId).setError(err);
+        GetResponses::emitResponse(requestId);
+        GetResponses::forgetResponse(requestId);
     }
 }
 
@@ -329,11 +315,14 @@ void Connection::store(const MultiRequest<StoreRequest> &request,
 
     auto requestId =
         StoreResponses::storeResponse(std::move(response), std::move(callback));
+
     auto err = lcb_store(m_instance, reinterpret_cast<void *>(requestId),
         requests.size(), commandsPtr.data());
 
     if (err != LCB_SUCCESS) {
-        throw err;
+        StoreResponses::getResponse(requestId).setError(err);
+        StoreResponses::emitResponse(requestId);
+        StoreResponses::forgetResponse(requestId);
     }
 }
 
@@ -358,11 +347,14 @@ void Connection::remove(const MultiRequest<RemoveRequest> &request,
 
     auto requestId = RemoveResponses::storeResponse(
         std::move(response), std::move(callback));
+
     auto err = lcb_remove(m_instance, reinterpret_cast<void *>(requestId),
         requests.size(), commandsPtr.data());
 
     if (err != LCB_SUCCESS) {
-        throw err;
+        RemoveResponses::getResponse(requestId).setError(err);
+        RemoveResponses::emitResponse(requestId);
+        RemoveResponses::forgetResponse(requestId);
     }
 }
 
@@ -390,11 +382,14 @@ void Connection::arithmetic(const MultiRequest<ArithmeticRequest> &request,
 
     auto requestId = ArithmeticResponses::storeResponse(
         std::move(response), std::move(callback));
+
     auto err = lcb_arithmetic(m_instance, reinterpret_cast<void *>(requestId),
         requests.size(), commandsPtr.data());
 
     if (err != LCB_SUCCESS) {
-        throw err;
+        ArithmeticResponses::getResponse(requestId).setError(err);
+        ArithmeticResponses::emitResponse(requestId);
+        ArithmeticResponses::forgetResponse(requestId);
     }
 }
 
@@ -416,11 +411,14 @@ void Connection::http(
 
     auto requestId =
         HttpResponses::storeResponse(std::move(response), std::move(callback));
+
     auto err = lcb_make_http_request(m_instance,
         reinterpret_cast<void *>(requestId), request.type(), &command, &req);
 
     if (err != LCB_SUCCESS) {
-        throw err;
+        HttpResponses::getResponse(requestId).setError(err);
+        HttpResponses::emitResponse(requestId);
+        HttpResponses::forgetResponse(requestId);
     }
 }
 
@@ -451,12 +449,15 @@ void Connection::durability(const MultiRequest<DurabilityRequest> &request,
 
     auto requestId = DurabilityResponses::storeResponse(
         std::move(response), std::move(callback));
+
     auto err =
         lcb_durability_poll(m_instance, reinterpret_cast<void *>(requestId),
             &options, requests.size(), commandsPtr.data());
 
     if (err != LCB_SUCCESS) {
-        throw err;
+        DurabilityResponses::getResponse(requestId).setError(err);
+        DurabilityResponses::emitResponse(requestId);
+        DurabilityResponses::forgetResponse(requestId);
     }
 }
 

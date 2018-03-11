@@ -40,6 +40,8 @@ public:
 
     void setError(lcb_error_t err);
 
+    lcb_error_t error() const;
+
 #if !defined(NO_ERLANG)
     nifpp::TERM toTerm(const Env &env) const;
 #endif

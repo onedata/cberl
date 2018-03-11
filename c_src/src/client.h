@@ -32,6 +32,8 @@ public:
 
     ~Client();
 
+    void join();
+
     void connect(ConnectRequest, Callback<ConnectResponse> callback);
 
     void get(ConnectionPtr connection, MultiRequest<GetRequest> request,
@@ -57,6 +59,12 @@ public:
 
 private:
     std::vector<std::shared_ptr<cb::Connection>> m_connections;
+
+    const unsigned short m_workerCount;
+
+    asio::io_service m_ioService;
+    asio::executor_work_guard<asio::io_service::executor_type> m_work;
+    std::vector<std::thread> m_workers;
 };
 
 } // namespace cb
