@@ -135,15 +135,15 @@ bulk_remove_test(Config) ->
 
 arithmetic_test(Config) ->
     C = ?config(connection, Config),
-    ok = cberl:remove(C, <<"k4">>, 0, ?TIMEOUT),
+    cberl:remove(C, <<"k4">>, 0, ?TIMEOUT),
     lists:foreach(fun(N) ->
         {ok, _, N} = cberl:arithmetic(C, <<"k4">>, 1, 0, 0, ?TIMEOUT)
     end, lists:seq(0, 9)).
 
 bulk_arithmetic_test(Config) ->
     C = ?config(connection, Config),
-    ok = cberl:remove(C, <<"k5">>, 0, ?TIMEOUT),
-    ok = cberl:remove(C, <<"k6">>, 0, ?TIMEOUT),
+    cberl:remove(C, <<"k5">>, 0, ?TIMEOUT),
+    cberl:remove(C, <<"k6">>, 0, ?TIMEOUT),
     {ok, [
         {<<"k5">>, {ok, _, 1}},
         {<<"k6">>, {ok, _, 2}}
