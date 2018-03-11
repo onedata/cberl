@@ -387,11 +387,10 @@ code_change(_OldVsn, State, _Extra) ->
     cberl_nif:response() | {error, Reason :: term()}.
 call(Connection, Request, Timeout) ->
     Ref = make_ref(),
-    io:format("Making request ~p~n", [Request]),
     gen_server:cast(Connection, {request, Ref, self(), Request}),
     case receive_response(Ref, Timeout) of
-        {ok, ResponseRef} -> io:format("received response ~p~n", [ResponseRef]), receive_response(ResponseRef, Timeout);
-        {error, Reason} ->io:format("received error ~p~n", [Reason]),  {error, Reason}
+        {ok, ResponseRef} -> receive_response(ResponseRef, Timeout);
+        {error, Reason} -> {error, Reason}
     end.
 
 %%--------------------------------------------------------------------
