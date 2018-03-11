@@ -345,6 +345,14 @@ handle_cast({request, Ref, From, {Function, Args}}, #state{} = State) ->
     } = State,
     {ok, Ref2} = apply(cberl_nif, Function, [From, Client, Connection | Args]),
     From ! {Ref, {ok, Ref2}},
+
+    case application:get_env(cberl, cberl_gc, on) of
+        on ->
+            erlang:garbage_collect();
+        _ ->
+            ok
+    end,
+
     {noreply, State};
 handle_cast(_Request, #state{} = State) ->
     {noreply, State}.
