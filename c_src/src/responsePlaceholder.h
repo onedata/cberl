@@ -48,6 +48,9 @@ uint64_t ResponsePlaceholder<TRes>::storeResponse(
     TRes &&value, std::function<void(const TRes &)> callback)
 {
     std::lock_guard<std::mutex> guard(m_mutex);
+
+    assert(callback);
+
     uint64_t id = m_responseNextId++;
     m_responses.emplace(id,
         std::make_tuple<TRes, std::function<void(const TRes &)>>(
@@ -60,6 +63,9 @@ void ResponsePlaceholder<TRes>::storeResponse(
     uint64_t id, TRes &&value, std::function<void(const TRes &)> callback)
 {
     std::lock_guard<std::mutex> guard(m_mutex);
+
+    assert(callback);
+
     m_responses.emplace(id,
         std::make_tuple<TRes, std::function<void(const TRes &)>>(
             std::move(value), std::move(callback)));
@@ -68,6 +74,9 @@ void ResponsePlaceholder<TRes>::storeResponse(
 template <class TRes> TRes &ResponsePlaceholder<TRes>::getResponse(uint64_t id)
 {
     std::lock_guard<std::mutex> guard(m_mutex);
+
+    assert(m_responses.find(id) != m_responses.end());
+
     return std::get<0>(m_responses[id]);
 }
 
@@ -75,6 +84,9 @@ template <class TRes>
 void ResponsePlaceholder<TRes>::forgetResponse(uint64_t id)
 {
     std::lock_guard<std::mutex> guard(m_mutex);
+
+    assert(m_responses.find(id) != m_responses.end());
+
     m_responses.erase(id);
 }
 
@@ -84,7 +96,10 @@ template <class TRes> void ResponsePlaceholder<TRes>::emitResponse(uint64_t id)
     auto response = std::get<0>(m_responses[id]);
     auto callback = std::get<1>(m_responses[id]);
 
-    callback(response);
+    assert(callback);
+
+    if(callback)
+        callback(response);
 }
 }
 

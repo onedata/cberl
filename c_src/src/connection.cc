@@ -15,6 +15,10 @@ void bootstrapCallback(lcb_t instance, lcb_error_t err)
     auto connection = const_cast<cb::Connection *>(
         static_cast<const cb::Connection *>(lcb_get_cookie(instance)));
 
+    assert(connection);
+    if (!connection)
+        return;
+
     auto responseId = reinterpret_cast<uint64_t>(connection);
 
     dynamic_cast<cb::ConnectionResponses *>(connection)
@@ -30,6 +34,10 @@ void getCallback(lcb_t instance, const void *cookie, lcb_error_t err,
 {
     auto connection = const_cast<cb::Connection *>(
         static_cast<const cb::Connection *>(lcb_get_cookie(instance)));
+
+    assert(connection);
+    if (!connection)
+        return;
 
     auto responseId = reinterpret_cast<const uint64_t>(cookie);
 
@@ -58,6 +66,10 @@ void storeCallback(lcb_t instance, const void *cookie, lcb_storage_t operation,
     auto connection = const_cast<cb::Connection *>(
         static_cast<const cb::Connection *>(lcb_get_cookie(instance)));
 
+    assert(connection);
+    if (!connection)
+        return;
+
     auto responseId = reinterpret_cast<const uint64_t>(cookie);
 
     auto &response =
@@ -84,6 +96,10 @@ void arithmeticCallback(lcb_t instance, const void *cookie, lcb_error_t err,
 {
     auto connection = const_cast<cb::Connection *>(
         static_cast<const cb::Connection *>(lcb_get_cookie(instance)));
+
+    assert(connection);
+    if (!connection)
+        return;
 
     auto responseId = reinterpret_cast<const uint64_t>(cookie);
 
@@ -113,6 +129,10 @@ void removeCallback(lcb_t instance, const void *cookie, lcb_error_t err,
     auto connection = const_cast<cb::Connection *>(
         static_cast<const cb::Connection *>(lcb_get_cookie(instance)));
 
+    assert(connection);
+    if (!connection)
+        return;
+
     auto responseId = reinterpret_cast<const uint64_t>(cookie);
 
     auto &response = dynamic_cast<cb::RemoveResponses *>(connection)
@@ -134,6 +154,10 @@ void httpCallback(lcb_http_request_t request, lcb_t instance,
     auto connection = const_cast<cb::Connection *>(
         static_cast<const cb::Connection *>(lcb_get_cookie(instance)));
 
+    assert(connection);
+    if (!connection)
+        return;
+
     auto responseId = reinterpret_cast<const uint64_t>(cookie);
 
     auto &response =
@@ -146,8 +170,7 @@ void httpCallback(lcb_http_request_t request, lcb_t instance,
     }
 
     dynamic_cast<cb::HttpResponses *>(connection)->emitResponse(responseId);
-     dynamic_cast<cb::HttpResponses
-     *>(connection)->forgetResponse(responseId);
+    dynamic_cast<cb::HttpResponses *>(connection)->forgetResponse(responseId);
 }
 
 void durabilityCallback(lcb_t instance, const void *cookie, lcb_error_t err,
@@ -155,6 +178,10 @@ void durabilityCallback(lcb_t instance, const void *cookie, lcb_error_t err,
 {
     auto connection = const_cast<cb::Connection *>(
         static_cast<const cb::Connection *>(lcb_get_cookie(instance)));
+
+    assert(connection);
+    if (!connection)
+        return;
 
     auto responseId = reinterpret_cast<const uint64_t>(cookie);
 
@@ -253,10 +280,7 @@ void Connection::bootstrap(const ConnectRequest &request,
     }
 }
 
-Connection::~Connection()
-{
-    lcb_destroy(m_instance);
-}
+Connection::~Connection() { lcb_destroy(m_instance); }
 
 void Connection::get(const MultiRequest<GetRequest> &request,
     Callback<MultiResponse<GetResponse>> callback)

@@ -41,7 +41,13 @@ void Client::connect(ConnectRequest request, Callback<ConnectResponse> callback)
         [&, request = std::move(request), callback = std::move(callback) ] {
             auto connection = std::make_shared<Connection>();
             m_connections.emplace_back(connection);
-            connection->bootstrap(request, &m_ioService, std::move(callback));
+            try {
+                connection->bootstrap(
+                    request, &m_ioService, std::move(callback));
+            }
+            catch (lcb_error_t err) {
+                callback(ConnectResponse{err, nullptr});
+            }
         });
 }
 

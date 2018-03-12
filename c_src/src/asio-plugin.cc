@@ -1,5 +1,5 @@
 /**
- * @file asio_io_opts.h
+ * @file asio_plugin.cc
  * @author Bartek Kryza
  * @copyright (C) 2018
  * This software is released under the MIT license cited in 'LICENSE.md'
@@ -33,20 +33,14 @@ struct read_handler;
 class asio_iops : lcb_io_opt_st {
 public:
     asio_iops(io_service *svc_in);
+
     void set_error() { set_error(errno); }
+
     void set_error(const error_code &ec) { set_error(ec.value()); }
+
     void set_error(int err) { LCB_IOPS_ERRNO(this) = err; }
+
     io_service &get_service() { return *svc; }
-
-    void ref() { refcount++; }
-
-    void unref()
-    {
-        if (--refcount) {
-            return;
-        }
-        delete this;
-    }
 
     void run_until_dead()
     {
@@ -90,21 +84,20 @@ public:
 private:
     asio::io_service *svc;
     asio::io_service svc_s;
-    size_t refcount;
     bool is_stopped;
     bool is_service_owner;
 };
 
 class asio_socket : public lcb_sockdata_st {
 public:
-    asio_socket(asio_iops *_parent, int domain)
+    asio_socket(std::shared_ptr<asio_iops> _parent, int domain)
         : m_socket(_parent->get_service())
     {
 
         ::memset((lcb_sockdata_st *)this, 0, sizeof(lcb_sockdata_st));
         m_parent = _parent;
-        rdarg = NULL;
-        rdcb = NULL;
+        rdarg = nullptr;
+        rdcb = nullptr;
         refcount = 1;
         wcount = 0;
         lcb_closed = false;
@@ -400,8 +393,8 @@ public:
         : m_timer(parent->get_service())
         , m_parent(parent)
     {
-        callback = NULL;
-        arg = NULL;
+        callback = nullptr;
+        arg = nullptr;
         m_parent->ref();
     }
 
@@ -417,8 +410,8 @@ public:
 
     void cancel()
     {
-        callback = NULL;
-        arg = NULL;
+        callback = nullptr;
+        arg = nullptr;
         m_timer.cancel();
     }
 
@@ -524,10 +517,10 @@ static void get_procs(int, lcb_loop_procs *loop, lcb_timer_procs *tm,
     iocp->close = close_socket;
     iocp->is_closed = check_closed;
 
-    iocp->write = NULL;
-    iocp->wballoc = NULL;
-    iocp->wbfree = NULL;
-    iocp->serve = NULL;
+    iocp->write = nullptr;
+    iocp->wballoc = nullptr;
+    iocp->wbfree = nullptr;
+    iocp->serve = nullptr;
 }
 }
 
@@ -540,7 +533,7 @@ asio_iops::asio_iops(io_service *svc_in)
     v.v2.get_procs = get_procs;
     destructor = iops_dtor;
 
-    if (svc_in != NULL) {
+    if (svc_in != nullptr) {
         svc = svc_in;
         is_service_owner = false;
     }
@@ -552,12 +545,13 @@ asio_iops::asio_iops(io_service *svc_in)
 }
 
 extern "C" {
-lcb_error_t lcb_create_boost_asio_io_opts(int, lcb_io_opt_st **io, void *arg)
+lcb_error_t lcb_create_asio_io_opts(
+    int, lcb_io_opt_st **io, std::shared_ptr<lcb_io_opt_st> iops)
 {
-    assert(io != nullptr);
-    assert(arg != nullptr);
+    assert(io.get() != nullptrptr);
+    assert(arg != nullptrptr);
 
-    *io = (lcb_io_opt_st *)new cb::asio_iops((asio::io_service *)arg);
+    *io = (lcb_io_opt_st *)iops.get();
 
     return LCB_SUCCESS;
 }

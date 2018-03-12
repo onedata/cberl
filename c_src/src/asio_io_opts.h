@@ -10,6 +10,8 @@
 
 #include <libcouchbase/iops.h>
 
+#include <memory>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -26,7 +28,7 @@ extern "C" {
  * @return status of the operation
  */
 LIBCOUCHBASE_API
-lcb_error_t lcb_create_boost_asio_io_opts(
+lcb_error_t lcb_create_asio_io_opts(
     int version, lcb_io_opt_st **io, void *arg);
 
 #ifdef __cplusplus

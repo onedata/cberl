@@ -33,6 +33,8 @@ using HttpResponses = ResponsePlaceholder<HttpResponse>;
 using DurabilityResponses =
     ResponsePlaceholder<MultiResponse<DurabilityResponse>>;
 
+class asio_iops;
+
 class Connection : public ConnectionResponses,
                    public GetResponses,
                    public StoreResponses,
@@ -71,6 +73,8 @@ public:
 
 private:
     lcb_t m_instance;
+
+    std::shared_ptr<asio_iops> m_asioIops;
 
     void join();
 };
