@@ -1,6 +1,6 @@
 # cberl
 
-An Erlang client for a CouchBase database based on Asio IO plugin.
+An Erlang client for a CouchBase database based on Libevent plugin.
 
 ## Build
 
@@ -11,6 +11,7 @@ Dependencies:
 * `g++` >= 4.9.0 (or `clang`)
 * `make`
 * `libcouchbase`
+* `folly` = 2017.10.02.00
 
 Once you have all of the dependencies, simply run `make` in `cberl` directory to
 build it.

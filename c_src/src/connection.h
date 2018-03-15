@@ -33,8 +33,6 @@ using HttpResponses = ResponsePlaceholder<HttpResponse>;
 using DurabilityResponses =
     ResponsePlaceholder<MultiResponse<DurabilityResponse>>;
 
-class asio_iops;
-
 class Connection : public ConnectionResponses,
                    public GetResponses,
                    public StoreResponses,

@@ -18,9 +18,6 @@ find_package(Threads REQUIRED)
 # Setup Erlang
 find_package(Erlang REQUIRED)
 
-# Setup Asio
-set(ASIO_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/deps/asio/asio/include)
-
 # Setup glog
 message(STATUS "Checking for glog...")
 find_package(Glog REQUIRED)
@@ -49,7 +46,6 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED On)
 add_compile_options(-Wall -Wshadow -Wpedantic)
 add_compile_options(-fvisibility=hidden -fvisibility-inlines-hidden)
-add_definitions(-DASIO_STANDALONE)
 
 include_directories(src)
 
