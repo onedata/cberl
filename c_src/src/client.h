@@ -12,11 +12,11 @@
 #include "responses/responses.h"
 #include "types.h"
 
-#include <asio/executor_work_guard.hpp>
-#include <asio/io_service.hpp>
+#include <folly/executors/IOThreadPoolExecutor.h>
 #include <libcouchbase/couchbase.h>
 
 #include <functional>
+#include <future>
 #include <memory>
 #include <string>
 #include <thread>
@@ -25,7 +25,6 @@
 namespace cb {
 
 class Client {
-    template <typename T> using Callback = std::function<void(const T &)>;
 
 public:
     Client();
@@ -56,9 +55,14 @@ public:
         Callback<MultiResponse<DurabilityResponse>> callback);
 
 private:
-    asio::io_service m_ioService;
-    asio::executor_work_guard<asio::io_service::executor_type> m_work;
-    std::thread m_worker;
+    // Currently the connection created via a @c client instance
+    // will be released only after the client event loop is
+    // completed and client is destroyed
+    std::vector<std::shared_ptr<cb::Connection>> m_connections;
+
+    const unsigned short m_workerCount;
+
+    std::shared_ptr<folly::IOThreadPoolExecutor> m_executor;
 };
 
 } // namespace cb

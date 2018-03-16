@@ -14,8 +14,6 @@ HttpResponse::HttpResponse(lcb_error_t err)
 {
 }
 
-void HttpResponse::setError(lcb_error_t err) { m_err = err; }
-
 void HttpResponse::setStatus(lcb_http_status_t status) { m_status = status; }
 
 void HttpResponse::setBody(const void *body, std::size_t bodySize)
@@ -25,6 +23,7 @@ void HttpResponse::setBody(const void *body, std::size_t bodySize)
     }
 }
 
+#if !defined(NO_ERLANG)
 nifpp::TERM HttpResponse::toTerm(const Env &env) const
 {
     if (m_err == LCB_SUCCESS) {
@@ -34,5 +33,6 @@ nifpp::TERM HttpResponse::toTerm(const Env &env) const
 
     return Response::toTerm(env);
 }
+#endif
 
 } // namespace cb
