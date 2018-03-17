@@ -158,7 +158,13 @@ http_test(Config) ->
     C = ?config(connection, Config),
     NonExistentViewPath = <<"_design/dev_example/_view/nothinghere">>,
     {ok, 404, _} = cberl:http(C, view, get, NonExistentViewPath,
-                              <<"application/json">>, <<>>, ?TIMEOUT).
+                              <<"application/json">>, <<>>, ?TIMEOUT),
+    DesignDoc = {[{<<"foo">>, [<<"bing">>, 2.3, true]}]},
+    {ok, 201, _} = cberl:http(C, view, put, "_design/dev_example",
+                              <<"application/json">>, jiffy:encode(DesignDoc), ?TIMEOUT),
+    {ok, 200, DesignDoc2} = cberl:http(C, view, get, "_design/dev_example",
+                              <<"application/json">>, <<>>, ?TIMEOUT),
+    DesignDoc = jiffy:decode(DesignDoc2).
 
 durability_test(Config) ->
     C = ?config(connection, Config),
