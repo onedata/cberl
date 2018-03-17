@@ -184,8 +184,8 @@ int main(int argc, char *argv[])
     auto user = "";
     auto password = "";
     auto bucket = "default";
-    auto workerCount = 50;
-    auto batchSize = 200;
+    auto workerCount = 100;
+    auto batchSize = 2000;
 
     if (argc > 1) {
         host = argv[1];
@@ -205,13 +205,15 @@ int main(int argc, char *argv[])
     if (argc > 6) {
         batchSize = std::stoi(argv[6]);
     }
+
+    auto client = std::make_shared<cb::Client>();
+
     auto benchmarkWorker = [&](std::string prefix) {
         std::vector<uint32_t> getEmptyTimes;
         std::vector<uint32_t> storeTimes;
         std::vector<uint32_t> getTimes;
         std::vector<uint32_t> durabilityTimes;
         std::vector<uint32_t> removeTimes;
-        auto client = std::make_shared<cb::Client>();
 
         cb::ConnectRequest request{host, user, password, bucket, {}};
 
@@ -236,7 +238,7 @@ int main(int argc, char *argv[])
 
         auto connection = connectResponse.connection();
 
-        int repeat = 10;
+        int repeat = 100;
 
         while (repeat--) {
             auto getEmptyTime = getBatch(client, connection, prefix, batchSize);

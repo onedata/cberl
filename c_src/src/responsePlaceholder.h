@@ -21,17 +21,43 @@ namespace cb {
  */
 template <class TRes> class ResponsePlaceholder {
 public:
+
+    /**
+     * Remove the response from the cache if exists.
+     */
     void forgetResponse(uint64_t id);
 
+    /**
+     * Execute the callback registered with the response. The response
+     * is not automatically removed from the cache after the callback
+     * is executed.
+     */
     void emitResponse(uint64_t id);
 
+    /**
+     * Add response to the cache. If a response with the same id
+     * is already in the cache it will be replace with the new value.
+     * The response will have an automatically assigned unique id.
+     */
     uint64_t storeResponse(
         TRes &&value, std::function<void(const TRes &)> callback);
 
+    /**
+     * Add a response to the cache with a custom id. The user must
+     * ensure it is unique.
+     */
     void storeResponse(
         uint64_t id, TRes &&value, std::function<void(const TRes &)> callback);
 
+    /**
+     * Return the response for given id.
+     */
     TRes &getResponse(uint64_t id);
+
+    /**
+     * Check if the cache has a response with given id.
+     */
+    bool hasResponse(uint64_t id);
 
 private:
     std::unordered_map<uint64_t,
@@ -58,6 +84,7 @@ uint64_t ResponsePlaceholder<TRes>::storeResponse(
     m_responses.emplace(id,
         std::make_tuple<TRes, std::function<void(const TRes &)>>(
             std::move(value), std::move(callback)));
+
     return id;
 }
 
@@ -74,6 +101,13 @@ void ResponsePlaceholder<TRes>::storeResponse(
     m_responses.emplace(id,
         std::make_tuple<TRes, std::function<void(const TRes &)>>(
             std::move(value), std::move(callback)));
+}
+
+template <class TRes> bool ResponsePlaceholder<TRes>::hasResponse(uint64_t id)
+{
+    std::lock_guard<std::mutex> guard(m_mutex);
+
+    return m_responses.find(id) != m_responses.end();
 }
 
 template <class TRes> TRes &ResponsePlaceholder<TRes>::getResponse(uint64_t id)
@@ -104,7 +138,7 @@ template <class TRes> void ResponsePlaceholder<TRes>::emitResponse(uint64_t id)
 
     assert(callback);
 
-    if(callback)
+    if (callback)
         callback(response);
 }
 }
