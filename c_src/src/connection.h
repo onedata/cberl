@@ -48,6 +48,10 @@ public:
 
     std::shared_ptr<Connection> getShared() { return shared_from_this(); }
 
+    uint64_t connectionId() const;
+
+    uint16_t retry();
+
     void bootstrap(const ConnectRequest &request, folly::EventBase *eventBase,
         Callback<ConnectResponse> callback);
 
@@ -71,6 +75,16 @@ public:
 
 private:
     lcb_t m_instance;
+
+    uint64_t m_connectionId{0};
+
+    // The bootstrapCallback can be called several times with a timeout
+    // so we have to count the number of times until we want to wait
+    // for succesfull connection boostrapCallback
+    int16_t m_retriesLeft{5};
+
+    static uint64_t m_connectionNextId;
+    static std::mutex m_mutex;
 };
 
 } // namespace cb

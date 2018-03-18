@@ -6,8 +6,6 @@
  */
 #include "connection.h"
 
-#include <iostream>
-
 namespace {
 
 void bootstrapCallback(lcb_t instance, lcb_error_t err)
@@ -19,17 +17,28 @@ void bootstrapCallback(lcb_t instance, lcb_error_t err)
     if (!connection)
         return;
 
-    auto responseId = reinterpret_cast<uint64_t>(connection);
+    auto responseId = connection->connectionId();
+    auto connectionPlaceholder =
+        dynamic_cast<cb::ConnectionResponses *>(connection);
 
-    dynamic_cast<cb::ConnectionResponses *>(connection)
-        ->getResponse(responseId)
-        .setError(err);
+    if (!connectionPlaceholder->hasResponse(responseId))
+        return;
 
-    dynamic_cast<cb::ConnectionResponses *>(connection)
-        ->emitResponse(responseId);
-
-    dynamic_cast<cb::ConnectionResponses *>(connection)
-        ->forgetResponse(responseId);
+    if (err == LCB_ETIMEDOUT) {
+        // With large number of connections, this callback receives sometimes
+        // one or more calls with timeout error, eventually followed by
+        // successfull connection response.
+        connectionPlaceholder->getResponse(responseId).setError(err);
+        if (!connection->retry()) {
+            connectionPlaceholder->emitResponse(responseId);
+            connectionPlaceholder->forgetResponse(responseId);
+        }
+    }
+    else {
+        connectionPlaceholder->getResponse(responseId).setError(err);
+        connectionPlaceholder->emitResponse(responseId);
+        connectionPlaceholder->forgetResponse(responseId);
+    }
 }
 
 void getCallback(lcb_t instance, const void *cookie, lcb_error_t err,
@@ -43,9 +52,11 @@ void getCallback(lcb_t instance, const void *cookie, lcb_error_t err,
         return;
 
     auto responseId = reinterpret_cast<const uint64_t>(cookie);
+    auto getPlaceholder = dynamic_cast<cb::GetResponses *>(connection);
+    if (!getPlaceholder->hasResponse(responseId))
+        return;
 
-    auto &response =
-        dynamic_cast<cb::GetResponses *>(connection)->getResponse(responseId);
+    auto &response = getPlaceholder->getResponse(responseId);
 
     if (err == LCB_SUCCESS) {
         response.add(
@@ -57,9 +68,8 @@ void getCallback(lcb_t instance, const void *cookie, lcb_error_t err,
     }
 
     if (response.complete()) {
-        dynamic_cast<cb::GetResponses *>(connection)->emitResponse(responseId);
-        dynamic_cast<cb::GetResponses *>(connection)
-            ->forgetResponse(responseId);
+        getPlaceholder->emitResponse(responseId);
+        getPlaceholder->forgetResponse(responseId);
     }
 }
 
@@ -74,9 +84,11 @@ void storeCallback(lcb_t instance, const void *cookie, lcb_storage_t operation,
         return;
 
     auto responseId = reinterpret_cast<const uint64_t>(cookie);
+    auto storePlaceholder = dynamic_cast<cb::StoreResponses *>(connection);
+    if (!storePlaceholder->hasResponse(responseId))
+        return;
 
-    auto &response =
-        dynamic_cast<cb::StoreResponses *>(connection)->getResponse(responseId);
+    auto &response = storePlaceholder->getResponse(responseId);
 
     if (err == LCB_SUCCESS) {
         response.add(
@@ -87,10 +99,8 @@ void storeCallback(lcb_t instance, const void *cookie, lcb_storage_t operation,
     }
 
     if (response.complete()) {
-        dynamic_cast<cb::StoreResponses *>(connection)
-            ->emitResponse(responseId);
-        dynamic_cast<cb::StoreResponses *>(connection)
-            ->forgetResponse(responseId);
+        storePlaceholder->emitResponse(responseId);
+        storePlaceholder->forgetResponse(responseId);
     }
 }
 
@@ -105,9 +115,12 @@ void arithmeticCallback(lcb_t instance, const void *cookie, lcb_error_t err,
         return;
 
     auto responseId = reinterpret_cast<const uint64_t>(cookie);
+    auto arithmeticPlaceholder =
+        dynamic_cast<cb::ArithmeticResponses *>(connection);
+    if (!arithmeticPlaceholder->hasResponse(responseId))
+        return;
 
-    auto &response = dynamic_cast<cb::ArithmeticResponses *>(
-        connection)->getResponse(responseId);
+    auto &response = arithmeticPlaceholder->getResponse(responseId);
 
     if (err == LCB_SUCCESS) {
         response.add(cb::ArithmeticResponse{
@@ -119,10 +132,8 @@ void arithmeticCallback(lcb_t instance, const void *cookie, lcb_error_t err,
     }
 
     if (response.complete()) {
-        dynamic_cast<cb::ArithmeticResponses *>(connection)
-            ->emitResponse(responseId);
-        dynamic_cast<cb::ArithmeticResponses *>(connection)
-            ->forgetResponse(responseId);
+        arithmeticPlaceholder->emitResponse(responseId);
+        arithmeticPlaceholder->forgetResponse(responseId);
     }
 }
 
@@ -137,17 +148,17 @@ void removeCallback(lcb_t instance, const void *cookie, lcb_error_t err,
         return;
 
     auto responseId = reinterpret_cast<const uint64_t>(cookie);
+    auto removePlaceholder = dynamic_cast<cb::RemoveResponses *>(connection);
+    if (!removePlaceholder->hasResponse(responseId))
+        return;
 
-    auto &response = dynamic_cast<cb::RemoveResponses *>(
-        connection)->getResponse(responseId);
+    auto &response = removePlaceholder->getResponse(responseId);
 
     response.add(cb::RemoveResponse{err, resp->v.v0.key, resp->v.v0.nkey});
 
     if (response.complete()) {
-        dynamic_cast<cb::RemoveResponses *>(connection)
-            ->emitResponse(responseId);
-        dynamic_cast<cb::RemoveResponses *>(connection)
-            ->forgetResponse(responseId);
+        removePlaceholder->emitResponse(responseId);
+        removePlaceholder->forgetResponse(responseId);
     }
 }
 
@@ -162,9 +173,11 @@ void httpCallback(lcb_http_request_t request, lcb_t instance,
         return;
 
     auto responseId = reinterpret_cast<const uint64_t>(cookie);
+    auto httpPlaceholder = dynamic_cast<cb::HttpResponses *>(connection);
+    if (!httpPlaceholder->hasResponse(responseId))
+        return;
 
-    auto &response =
-        dynamic_cast<cb::HttpResponses *>(connection)->getResponse(responseId);
+    auto &response = httpPlaceholder->getResponse(responseId);
 
     response.setError(err);
     if (err == LCB_SUCCESS) {
@@ -172,8 +185,8 @@ void httpCallback(lcb_http_request_t request, lcb_t instance,
         response.setBody(resp->v.v0.bytes, resp->v.v0.nbytes);
     }
 
-    dynamic_cast<cb::HttpResponses *>(connection)->emitResponse(responseId);
-    dynamic_cast<cb::HttpResponses *>(connection)->forgetResponse(responseId);
+    httpPlaceholder->emitResponse(responseId);
+    httpPlaceholder->forgetResponse(responseId);
 }
 
 void durabilityCallback(lcb_t instance, const void *cookie, lcb_error_t err,
@@ -187,9 +200,12 @@ void durabilityCallback(lcb_t instance, const void *cookie, lcb_error_t err,
         return;
 
     auto responseId = reinterpret_cast<const uint64_t>(cookie);
+    auto durabilityPlaceholder =
+        dynamic_cast<cb::DurabilityResponses *>(connection);
+    if (!durabilityPlaceholder->hasResponse(responseId))
+        return;
 
-    auto &response = dynamic_cast<cb::DurabilityResponses *>(
-        connection)->getResponse(responseId);
+    auto &response = durabilityPlaceholder->getResponse(responseId);
 
     if (err == LCB_SUCCESS) {
         response.add(cb::DurabilityResponse{
@@ -201,17 +217,31 @@ void durabilityCallback(lcb_t instance, const void *cookie, lcb_error_t err,
     }
 
     if (response.complete()) {
-        dynamic_cast<cb::DurabilityResponses *>(connection)
-            ->emitResponse(responseId);
-        dynamic_cast<cb::DurabilityResponses *>(connection)
-            ->forgetResponse(responseId);
+        durabilityPlaceholder->emitResponse(responseId);
+        durabilityPlaceholder->forgetResponse(responseId);
     }
 }
 } // namespace
 
 namespace cb {
 
-Connection::Connection() {}
+uint64_t Connection::m_connectionNextId = 1;
+std::mutex Connection::m_mutex{};
+
+Connection::Connection()
+{
+    std::lock_guard<std::mutex> lock(Connection::m_mutex);
+    m_connectionId = Connection::m_connectionNextId++;
+}
+
+uint64_t Connection::connectionId() const { return m_connectionId; }
+
+uint16_t Connection::retry()
+{
+    if (--m_retriesLeft < 0)
+        m_retriesLeft = 0;
+    return m_retriesLeft;
+}
 
 void Connection::bootstrap(const ConnectRequest &request,
     folly::EventBase *eventBase, Callback<ConnectResponse> callback)
@@ -282,11 +312,12 @@ void Connection::bootstrap(const ConnectRequest &request,
 
     cb::ConnectResponse response{LCB_SUCCESS, getShared()};
 
-    ConnectionResponses::storeResponse(reinterpret_cast<uint64_t>(this),
-        std::move(response), std::move(callback));
+    ConnectionResponses::storeResponse(
+        connectionId(), std::move(response), std::move(callback));
 
     err = lcb_connect(m_instance);
     if (err != LCB_SUCCESS) {
+        ConnectionResponses::forgetResponse(connectionId());
         throw err;
     }
 }
